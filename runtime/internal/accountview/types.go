@@ -49,7 +49,19 @@ type AnalyticsView struct {
 	Options                   AnalyticsOptions
 }
 
+type ToolUsage struct {
+	Name                                                string
+	Calls, Succeeded, Failed, Canceled, Active, Unknown int64
+}
+
+type StorageCategory struct {
+	Kind         string
+	Bytes, Files int64
+}
+
 type UsageSummary struct {
+	Tools                                                   []ToolUsage
+	Attachments                                             []StorageCategory
 	UserID                                                  core.ID
 	Username, DisplayName                                   string
 	GroupID                                                 core.ID
@@ -60,6 +72,7 @@ type UsageSummary struct {
 }
 
 type AdminUsage struct {
+	AsOf           time.Time
 	Users          []UsageSummary
 	ContextStorage contextstore.Usage
 }

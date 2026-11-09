@@ -11,6 +11,8 @@ Maintain shared navigation, form, notification, and feedback behaviors across th
 
 Settings pages and their dialogs use the shared `SegmentedControl` for two or three fixed, short, mutually exclusive options, keeping all choices visible. Appearance uses `ThemeSelect variant="segmented"`. Match adjacent controls: general and theme settings rows, usage calendar metrics and grouping use `sm`; standard dialog forms use `md`. Each matches the text size and overall height of the corresponding Select size. Preserve radio semantics, arrow-key navigation and disabled states while saving; wrap when space is insufficient to expose every option. Extensible timezone, model, user-group and plugin-theme lists continue to use `Select`, and boolean toggles use `Switch`.
 
+Personal and administrator usage use shared `Tabs` for Models, Tools and Storage, defaulting to Models. Switching preserves filters, grouping and date selection. Date/model filters affect model analytics only; tools use lifetime records with an independent administrator member filter. Storage shows current holdings; global administrator storage is unaffected by other tabs. Each tab has Refresh. Storage categories show size, object count and share with the measurement scope nearby.
+
 Usage breakdown sorting lives in the Total tokens, Spend and Calls column headers, using the shared `Table` sort buttons and `aria-sort`. Selecting a column sorts that metric in descending order and returns to page one; selecting the current column leaves the order unchanged. Account and administrator usage pages share this behavior, with the server sorting before pagination.
 
 ## Overlays and Panels

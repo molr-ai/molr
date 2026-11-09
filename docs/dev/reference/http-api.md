@@ -341,7 +341,9 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 
 `GET /api/account/quotas` 的 `Summary` 与 `GET /api/admin/usage` 返回的 `Users` 中对应成员使用同一累计统计：`UserMessages`、`ModelCalls`、`ToolCalls`、`ConnectionCalls`、`Spent`、`Reserved`、`AttachmentBytes`、`Active`、`Unknown`。金额按原币种返回；附件只统计 Ready 文件。`UserMessages` 按账号统计 `im.receipts` 中 `Message.Sender=user` 的成功发送回执，包含归档会话；幂等重试与克隆历史不重复计数，删除聊天记录不减少累计值。按账号和发送者的覆盖索引在数据库中计数，不读取消息正文，与上下文存储的 `Messages` 节点数独立。`Active` / `Unknown` 为模型和工具操作的占用／未知数，HTTP 工具已包含在工具操作中，不重复相加。管理员接口仅输出统计和账号标识，不返回调用参数、回执正文或私人业务内容。
 
-上下文用量：`GET /api/account/quotas` 的 `ContextStorage` 只统计当前账号引用可达的对象，账号内去重；`GET /api/admin/usage` 返回 `{Users, ContextStorage}`，其中 `ContextStorage` 统计跨账号去重后的全部已存对象（含待回收对象），与成员筛选无关。两者字段为 `Bytes`（对象 JSON 正文字节数，含消息、共享定义及调试详情，不含索引、引用元数据和数据库空闲空间）和 `Messages`（唯一消息节点数）。统计在同一读取事务中完成；共享对象分别计入引用它的各账号，账号数值不能相加代替全局数值。接口只返回汇总数字，不返回消息、节点 ID 或其他账号的引用。
+`Summary.Tools` 按工具标识返回 `Name`、`Calls`、`Succeeded`、`Failed`、`Canceled`、`Active`、`Unknown`，排除模型和 prepared 操作，按调用数降序、同次数按标识排序。`Summary.Attachments` 按 `Kind=image|audio|video|text|other` 返回 `Bytes` 和 `Files`，只计 ready 文件，字节数加总等于 `AttachmentBytes`。两者只读取必要元数据，不读取调用结果或文件内容。
+
+上下文用量：`GET /api/account/quotas` 的 `ContextStorage` 只统计当前账号引用可达的对象，账号内去重；`GET /api/admin/usage` 返回 `{Users, ContextStorage, AsOf}`，其中 `ContextStorage` 统计跨账号去重后的全部已存对象（含待回收对象），与成员筛选无关。两者字段为 `Bytes`（对象 JSON 正文字节数，含消息、共享定义及调试详情，不含索引、引用元数据和数据库空闲空间）和 `Messages`（唯一消息节点数）。另返回 `MessageBytes`、`ValueBytes`、`DocumentBytes`（三者之和等于 `Bytes`）以及 `Values`、`Documents` 对象数量，分别对应消息、共享定义和上下文结构。全局分类由数据库聚合，账号分类沿用可达对象的批量元数据遍历，不读取消息正文。统计在同一读取事务中完成；共享对象分别计入引用它的各账号，账号数值不能相加代替全局数值。接口只返回汇总数字，不返回消息、节点 ID 或其他账号的引用。
 
 个人 `Resources` 包含 `Kind`、`ID`、`Name`、`Calls`、`Active`、`Unknown`、`Carried`、`Spent`、`Reserved`、`PeriodStart`、`PeriodEnd`。模型／工具／连接的统计与准入一致，当前周期以外仍在执行的调用继续计入占用，并以 `Carried` 单列。`Unknown` 表示本地调用已结束但结果或费用未知，不计入 `Active` / `Reserved`，调用次数仅计入原周期；它不是 `Active` 的子集。`PeriodEnd=null` 表示累计周期；沙盒实际用量仍由 `/api/resource-usage` 获取，不将其配置限额当作用量。
 

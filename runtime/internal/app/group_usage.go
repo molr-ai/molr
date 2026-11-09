@@ -88,7 +88,7 @@ func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (a
 	// HTTP tools already appear in tool operations; don't double-count them here.
 	out.Active, out.Unknown = models.Active+tools.Active, models.Unknown+tools.Unknown
 	out.Spent, out.Reserved = models.Spent, models.Reserved
-	out.AttachmentBytes, err = quota.AttachmentBytes(ctx, store, u.ID)
+	out.Tools, out.Attachments, out.AttachmentBytes, err = usageDetails(ctx, store, u.ID)
 	if err != nil {
 		return out, err
 	}
@@ -105,7 +105,7 @@ func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Man
 	if err := identity.RequireAdministrator(ctx, p); err != nil {
 		return accountview.AdminUsage{}, err
 	}
-	out := accountview.AdminUsage{Users: []accountview.UsageSummary{}}
+	out := accountview.AdminUsage{Users: []accountview.UsageSummary{}, AsOf: time.Now().UTC()}
 	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		page := core.PageRequest{Limit: 200}
 		for {

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/assistant"
@@ -10,6 +12,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -176,4 +179,75 @@ func TestLifetimeUserMessagesCountSuccessfulSends(t *testing.T) {
 		return err
 	}))
 	assertCounts(want)
+}
+
+func TestUsageDetailsClassifyCallsAndReadyFilesWithoutPrivateData(t *testing.T) {
+	t.Parallel()
+	f := newMultiUserFixture(t)
+	ctx := t.Context()
+	need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		for _, owner := range []core.ID{f.alice.OwnerID, f.bob.OwnerID} {
+			for i, state := range []string{"prepared", "running", "succeeded", "failed", "canceled", "unknown"} {
+				id := core.ID(fmt.Sprintf("call-%d", i))
+				if err := tx.Put(ctx, "agent.operations", persistence.Key(owner, id), map[string]any{"ID": id, "OwnerID": owner, "Action": "conversation_read", "State": state, "Result": "PRIVATE-result"}); err != nil {
+					return err
+				}
+			}
+			if err := tx.Put(ctx, "agent.operations", persistence.Key(owner, "model-call"), map[string]any{"ID": "model-call", "OwnerID": owner, "Action": "model.generate", "State": "succeeded"}); err != nil {
+				return err
+			}
+			for i, mediaType := range []string{"image/png", "image/jpeg", "audio/ogg", "video/mp4", "text/plain; charset=utf-8", "application/pdf", ""} {
+				if err := tx.Put(ctx, "storage.files", persistence.Key(owner, core.ID(fmt.Sprintf("file-%d", i))), map[string]any{"OwnerID": owner, "State": "ready", "MediaType": mediaType, "Size": 100, "Name": "PRIVATE-filename"}); err != nil {
+					return err
+				}
+			}
+			for _, state := range []string{"staged", "failed"} {
+				if err := tx.Put(ctx, "storage.files", persistence.Key(owner, core.ID(state)), map[string]any{"OwnerID": owner, "State": state, "Size": 999}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}))
+	identity := f.b.Services.Auth.(*auth.Manager)
+	personal, err := accountQuotas(ctx, f.b.store, identity, f.alice)
+	need(t, err)
+	if personal.Summary.ToolCalls != 5 || len(personal.Summary.Tools) != 1 {
+		t.Fatal(personal.Summary)
+	}
+	tool := personal.Summary.Tools[0]
+	if tool.Calls != 5 || tool.Succeeded != 1 || tool.Failed != 1 || tool.Canceled != 1 || tool.Active != 1 || tool.Unknown != 1 {
+		t.Fatal(tool)
+	}
+	if personal.Summary.AttachmentBytes != 700 || len(personal.Summary.Attachments) != 5 {
+		t.Fatal(personal.Summary)
+	}
+	var total, count int64
+	for _, category := range personal.Summary.Attachments {
+		total += category.Bytes
+		count += category.Files
+	}
+	if total != personal.Summary.AttachmentBytes || count != 7 || personal.Summary.Attachments[0].Files != 2 {
+		t.Fatal(personal.Summary.Attachments)
+	}
+	global, err := adminUsage(ctx, f.b.store, identity, f.admin)
+	need(t, err)
+	for _, row := range global.Users {
+		if row.UserID == f.alice.OwnerID && !reflect.DeepEqual(row, personal.Summary) {
+			t.Fatal(row, personal.Summary)
+		}
+	}
+	raw, err := json.Marshal(global)
+	need(t, err)
+	if strings.Contains(string(raw), "PRIVATE-") {
+		t.Fatal("private data exposed")
+	}
+	for _, size := range []int64{-1, math.MaxInt64} {
+		need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			return tx.Put(ctx, "storage.files", persistence.Key(f.alice.OwnerID, "invalid-size"), map[string]any{"OwnerID": f.alice.OwnerID, "State": "ready", "Size": size})
+		}))
+		if _, err := accountQuotas(ctx, f.b.store, identity, f.alice); core.CodeOf(err) != core.Internal {
+			t.Fatal("invalid size accepted", err)
+		}
+	}
 }

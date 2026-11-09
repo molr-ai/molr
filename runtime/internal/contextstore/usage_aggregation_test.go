@@ -124,6 +124,10 @@ func seedAccountUsage(ctx context.Context, db persistence.Store, count, size int
 				want.Bytes += int64(len(raw))
 				if value.Kind == "message" {
 					want.Messages++
+					want.MessageBytes += int64(len(raw))
+				} else {
+					want.Documents++
+					want.DocumentBytes += int64(len(raw))
 				}
 				if err := tx.Put(ctx, objects, key, value); err != nil {
 					return err

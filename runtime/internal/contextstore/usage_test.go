@@ -91,3 +91,21 @@ func TestUsagePaginatesReferencesAndObjects(t *testing.T) {
 		t.Fatal("empty owner accepted", err)
 	}
 }
+
+func TestUsageBreakdownMatchesEncodedObjects(t *testing.T) {
+	s := fixture(t)
+	write(t, s, func(ctx context.Context, tx persistence.Tx) error {
+		return Save(ctx, tx, ref("alice", "breakdown"), map[string]any{
+			"Inputs": []any{map[string]any{"Role": "user", "Text": "private content"}},
+			"Tools":  []any{map[string]any{"Name": "example", "Description": "private definition"}},
+			"Status": "complete",
+		})
+	})
+	account, global := usage(t, s, "alice"), usage(t, s, "")
+	if account != global || account.Messages != 1 || account.Values != 1 || account.Documents != 1 {
+		t.Fatal(account, global)
+	}
+	if account.MessageBytes <= 0 || account.ValueBytes <= 0 || account.DocumentBytes <= 0 || account.Bytes != account.MessageBytes+account.ValueBytes+account.DocumentBytes {
+		t.Fatal("categories do not reconcile", account)
+	}
+}

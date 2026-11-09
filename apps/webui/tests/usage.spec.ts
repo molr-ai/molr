@@ -34,19 +34,36 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect.poll(async () => (await request(member, '/api/account/quotas')).Summary.ModelCalls, { timeout: 25000 }).toBeGreaterThan(0);
     await expect.poll(async () => (await request(member, `/api/jobs?assistant_id=${assistant.ID}`)).Items.find((job: any) => job.Event.Kind === 'user_message')?.State, { timeout: 25000 }).toBe('done');
     await expect.poll(async () => (await request(member, '/api/account/quotas')).Summary.Active, { timeout: 25000 }).toBe(0);
+    await member.evaluate(async () => {
+      const module = '/@id/@molr/sdk', { api } = await import(module);
+      await api.upload(new File(['usage fixture'], 'usage.txt', { type: 'text/plain' }), crypto.randomUUID());
+    });
     await member.goto('/#/account/usage');
     await expect(member.locator('.usage-analytics-overview')).toBeVisible();
     await expect(member.locator('.usage-current')).toHaveAttribute('open', '');
     await expect(member.locator('.usage-current > summary')).toHaveText('Lifetime usage and allowances');
     await expect(member.getByRole('heading', { name: 'Current member allowances' })).toBeVisible();
     await expect(member.locator('.usage-resource').filter({ hasText: model.Name })).toContainText('Monthly');
+    await expect(member.locator('.usage-resource').filter({ hasText: 'Read conversations' })).toBeHidden();
+    await member.getByRole('tab', { name: 'Tools', exact: true }).click();
     await expect(member.locator('.usage-resource').filter({ hasText: 'Read conversations' })).toBeVisible();
+    await expect(member.getByRole('table', { name: 'Tool call breakdown' })).toContainText('Read conversations');
+    await expect(member.getByRole('combobox', { name: 'Date range' })).toBeHidden();
+    await member.getByRole('tab', { name: 'Storage', exact: true }).click();
+    await member.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('Message content');
     const personal = await request(member, '/api/account/quotas');
     const stats = await request(page, '/api/admin/usage'), row = stats.Users.find((u: any) => u.UserID === user.ID);
+    expect(personal.Summary.Attachments).toEqual([{ Kind: 'text', Bytes: 13, Files: 1 }]);
+    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('Text files');
+    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('13 B');
     expect(personal.ContextStorage.Bytes).toBeGreaterThan(0);
     expect(personal.ContextStorage.Messages).toBeGreaterThan(0);
     expect(stats.ContextStorage.Bytes).toBeGreaterThanOrEqual(personal.ContextStorage.Bytes);
-    await expect(member.getByRole('region', { name: 'Account context storage', exact: true })).toContainText('Unique message nodes');
+    await expect(member.getByRole('region', { name: 'Account context storage', exact: true })).toContainText('deduplicat');
+    expect(personal.ContextStorage.MessageBytes + personal.ContextStorage.ValueBytes + personal.ContextStorage.DocumentBytes).toBe(personal.ContextStorage.Bytes);
+    expect(personal.Summary.Tools.reduce((n: number, row: any) => n + row.Calls, 0)).toBe(personal.Summary.ToolCalls);
+    await member.getByRole('tab', { name: 'Models', exact: true }).click();
     expect(personal.Summary.UserMessages).toBe(1);
     expect(row.UserMessages).toBe(1);
     await expect(member.locator('.usage-metric').filter({ has: member.getByText('Lifetime user messages', { exact: true }) }).locator('dd')).toHaveText('1');
@@ -77,9 +94,11 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await page.goto('/#/settings/usage');
     await expect(page.locator('.usage-current')).toHaveAttribute('open', '');
     await expect(page.locator('.usage-current > summary')).toHaveText('Lifetime usage and resources');
+    await page.getByRole('tab', { name: 'Storage', exact: true }).click();
     const storage = page.getByRole('region', { name: 'Global context storage', exact: true });
-    await expect(storage).toContainText('Unique message nodes');
+    await expect(storage).toContainText('deduplicat');
     const globalText = await storage.textContent();
+    await page.getByRole('tab', { name: 'Models', exact: true }).click();
     const totalMessages = stats.Users.reduce((sum: number, user: any) => sum + user.UserMessages, 0);
     await expect(page.locator('.usage-metric').filter({ has: page.getByText('Lifetime user messages', { exact: true }) }).locator('dd')).toHaveText(totalMessages.toLocaleString('en'));
     await page.getByRole('searchbox', { name: 'Search members' }).fill(username);
@@ -92,7 +111,15 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect(page.locator('.usage-table')).toContainText(username);
     await page.getByRole('searchbox', { name: 'Search members' }).fill('absent-usage-fixture');
     await expect(page.getByText('No usage recorded', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Tools', exact: true }).click();
+    await expect(page.getByRole('table', { name: 'Tool call breakdown' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Storage', exact: true }).click();
     await expect(storage).toHaveText(globalText!);
+    await page.getByRole('tab', { name: 'Models', exact: true }).click();
+    await expect(page.getByRole('searchbox', { name: 'Search members' })).toHaveValue('absent-usage-fixture');
+    await page.getByRole('tab', { name: 'Models', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Tools', exact: true })).toHaveAttribute('aria-selected', 'true');
     for (const current of [page, member]) expect(await current.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
 });
@@ -199,4 +226,20 @@ test('usage and sandbox GET responses cache snapshots and explicit refresh repla
   const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/account/quotas' && new URL(response.url()).searchParams.get('refresh') === 'true');
   await page.locator('.usage-toolbar').getByRole('button', { name: 'Refresh', exact: true }).click();
   expect((await refreshed).headers()['x-cache']).toBe('REFRESH');
+});
+
+
+test('tool and storage failures offer refresh without showing empty totals', async ({ page }) => {
+  await login(page);
+  await page.route('**/api/account/quotas*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'fixture unavailable' } }) }));
+  await page.goto('/#/account/usage');
+  for (const name of ['Tools', 'Storage']) {
+    await page.getByRole('tab', { name, exact: true }).click();
+    const panel = page.getByRole('tabpanel', { name, exact: true });
+    await expect(panel.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    await expect(panel.locator('.usage-overview')).toHaveCount(0);
+  }
+  await page.unroute('**/api/account/quotas*');
+  await page.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Storage breakdown' })).toBeVisible();
 });

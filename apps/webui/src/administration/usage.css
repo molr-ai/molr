@@ -29,3 +29,18 @@
  .usage-toolbar { align-items: flex-start; }
  .usage-costs { grid-template-columns: minmax(0,1fr); }
 }
+
+.usage-tabs { min-width: 0; }
+.usage-tab-content { display: grid; gap: var(--space-5); min-width: 0; }
+.usage-details { display: grid; gap: var(--space-4); min-width: 0; }
+.usage-tool-name { display: grid; gap: var(--space-1); overflow-wrap: anywhere; }
+.usage-tool-name small { color: var(--color-text-muted); }
+
+.usage-storage-overview { grid-template-columns: repeat(4,minmax(0,1fr)); }
+@media (--molr-mobile) {
+ .usage-storage-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .usage-storage-table .ui-table { min-width: 0; table-layout: fixed; }
+ .usage-storage-table .ui-table th,.usage-storage-table .ui-table td { padding: var(--space-3) var(--space-2); overflow-wrap: anywhere; }
+ .usage-storage-table .ui-table th:first-child { width: 40%; }
+ .usage-storage-table .usage-share .ui-progress { display: none; }
+}

@@ -10,8 +10,10 @@ import (
 // Usage measures encoded object values, excluding database/index overhead and
 // external reference metadata. It never exposes message contents or object IDs.
 type Usage struct {
-	Bytes    int64
-	Messages int64
+	Bytes                                   int64
+	Messages                                int64
+	MessageBytes, ValueBytes, DocumentBytes int64
+	Values, Documents                       int64
 }
 
 // AccountUsage traverses only graph metadata in bounded batches. Payload bytes
@@ -57,8 +59,16 @@ func AccountUsage(ctx context.Context, tx persistence.Tx, owner core.ID) (Usage,
 				return Usage{}, err
 			}
 			out.Bytes += row.EncodedBytes
-			if o.Kind == "message" {
+			switch o.Kind {
+			case "message":
 				out.Messages++
+				out.MessageBytes += row.EncodedBytes
+			case "value":
+				out.Values++
+				out.ValueBytes += row.EncodedBytes
+			case "document":
+				out.Documents++
+				out.DocumentBytes += row.EncodedBytes
 			}
 			enqueue(o.Parent)
 			for _, s := range o.Trees {
@@ -75,13 +85,26 @@ func AccountUsage(ctx context.Context, tx persistence.Tx, owner core.ID) (Usage,
 // GlobalUsage counts each stored object once, including objects awaiting GC.
 // The caller must authorize administrator access before invoking it.
 func GlobalUsage(ctx context.Context, tx persistence.Tx) (Usage, error) {
-	bytes, err := tx.EncodedBytes(ctx, objects, persistence.Query{})
-	if err != nil {
-		return Usage{}, err
+	var out Usage
+	for _, item := range []struct {
+		kind        string
+		count, size *int64
+	}{
+		{"message", &out.Messages, &out.MessageBytes},
+		{"value", &out.Values, &out.ValueBytes},
+		{"document", &out.Documents, &out.DocumentBytes},
+	} {
+		q := persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", item.kind)}}
+		var err error
+		*item.count, err = tx.Count(ctx, objects, q)
+		if err != nil {
+			return Usage{}, err
+		}
+		*item.size, err = tx.EncodedBytes(ctx, objects, q)
+		if err != nil {
+			return Usage{}, err
+		}
+		out.Bytes += *item.size
 	}
-	messages, err := tx.Count(ctx, objects, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "message")}})
-	if err != nil {
-		return Usage{}, err
-	}
-	return Usage{Bytes: bytes, Messages: messages}, nil
+	return out, nil
 }
