@@ -90,14 +90,9 @@
   --color-trace-model: #286fa8;
   --color-trace-tool: #956019;
   /* Storage composition categories, paired with labels and numeric shares. */
-  --color-storage-messages: #3b82f7;
-  --color-storage-values: #b85cfa;
-  --color-storage-documents: #64748b;
-  --color-storage-image: #ea8732;
-  --color-storage-audio: #189ca3;
-  --color-storage-video: #d95b91;
-  --color-storage-text: #50a77a;
-  --color-storage-other: #c4a126;
+  --color-storage-database: #3b82f7;
+  --color-storage-attachments: #ea8732;
+  --color-storage-workspaces: #50a77a;
 
   --color-context-system: #b85cfa;
   --color-context-tool: #71d1a3;
@@ -140,14 +135,9 @@
   --color-plan-watch: #e2b16c;
   --color-trace-model: #70bbef;
   --color-trace-tool: #efbc65;
-  --color-storage-messages: #6aa3ff;
-  --color-storage-values: #cb83ff;
-  --color-storage-documents: #94a3b8;
-  --color-storage-image: #ffb35e;
-  --color-storage-audio: #4cc9ce;
-  --color-storage-video: #f58ab6;
-  --color-storage-text: #83ddb4;
-  --color-storage-other: #dfc15a;
+  --color-storage-database: #6aa3ff;
+  --color-storage-attachments: #ffb35e;
+  --color-storage-workspaces: #83ddb4;
 
   --color-context-system: #cb83ff;
   --color-context-tool: #83ddb4;

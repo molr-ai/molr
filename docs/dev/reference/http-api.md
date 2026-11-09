@@ -39,7 +39,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 
 ## GET 响应缓存
 
-默认对以下 GET 接口启用 Runtime 内存缓存，有效期为写入成功后的 5 分钟：`/api/account/usage`、`/api/account/quotas`、`/api/admin/usage/analytics`、`/api/admin/usage`、`/api/sandbox`、`/api/sandboxes` 和 `/api/sandboxes/{id}/resources`。助理、授权、资源、模型等共享列表保持实时读取。浏览器响应仍使用 `Cache-Control: no-store`，缓存仅存在当前 Runtime 进程中，重启后清空。
+默认对以下 GET 接口启用 Runtime 内存缓存，有效期为写入成功后的 5 分钟：`/api/account/usage`、`/api/account/quotas`、`/api/account/storage`、`/api/admin/storage`、`/api/admin/usage/analytics`、`/api/admin/usage`、`/api/sandbox`、`/api/sandboxes` 和 `/api/sandboxes/{id}/resources`。助理、授权、资源、模型等共享列表保持实时读取。浏览器响应仍使用 `Cache-Control: no-store`，缓存仅存在当前 Runtime 进程中，重启后清空。
 
 接口策略由 `internal/api/response_cache.go` 集中声明，`api.Options.ResponseCache` 可按路由覆盖 TTL，`0` 表示关闭；只允许 GET 开启。开启新接口还需提供实时权限检查和可见范围指纹。缓存键区分账号、身份、路由、路径和查询参数，权限与用户组可见性每次检查；用户组、统计币种或时区变化会改变相应缓存键。
 
@@ -69,6 +69,8 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | DELETE | `/api/files/{id}` |
 | GET | `/api/account` |
 | GET | `/api/account/quotas` |
+| GET | `/api/account/storage` |
+| GET | `/api/admin/storage` |
 | GET | `/api/account/usage` |
 | GET | `/api/admin/catalog` |
 | GET | `/api/admin/groups` |
@@ -344,6 +346,8 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 `Summary.Tools` 按工具标识返回 `Name`、`Calls`、`Succeeded`、`Failed`、`Canceled`、`Active`、`Unknown`，排除模型和 prepared 操作，按调用数降序、同次数按标识排序。`Summary.Attachments` 按 `Kind=image|audio|video|text|other` 返回 `Bytes` 和 `Files`，只计 ready 文件，字节数加总等于 `AttachmentBytes`。两者只读取必要元数据，不读取调用结果或文件内容。
 
 上下文用量：`GET /api/account/quotas` 的 `ContextStorage` 只统计当前账号引用可达的对象，账号内去重；`GET /api/admin/usage` 返回 `{Users, ContextStorage, AsOf}`，其中 `ContextStorage` 统计跨账号去重后的全部已存对象（含待回收对象），与成员筛选无关。两者字段为 `Bytes`（对象 JSON 正文字节数，含消息、共享定义及调试详情，不含索引、引用元数据和数据库空闲空间）和 `Messages`（唯一消息节点数）。另返回 `MessageBytes`、`ValueBytes`、`DocumentBytes`（三者之和等于 `Bytes`）以及 `Values`、`Documents` 对象数量，分别对应消息、共享定义和上下文结构。全局分类由数据库聚合，账号分类沿用可达对象的批量元数据遍历，不读取消息正文。统计在同一读取事务中完成；共享对象分别计入引用它的各账号，账号数值不能相加代替全局数值。接口只返回汇总数字，不返回消息、节点 ID 或其他账号的引用。
+
+`GET /api/account/storage` 和管理员专用的 `GET /api/admin/storage` 返回 `Database`、`Attachments`、`Workspaces`，每项包含 `Bytes`、`Files`、`Available`，并返回 `DatabasePhysical` 与 `AsOf`。个人数据库为按归属字段或账号键前缀归属的记录 JSON 大小，加上账号可达且去重的上下文对象；共享索引与空闲页不分摊。管理员数据库为主数据库、WAL 和 SHM 文件大小之和，不按成员拆分。附件仅统计 ready 文件。个人工作区按本账号的助理标识解析本机托管路径，包含已离职助理；管理员统计整个托管根目录。仅测量普通文件，不跟随符号链接、不读取文件内容，不包含外部接入目录。目录遍历在数据库事务结束后进行，受请求取消及一百万目录项上限约束；失败分类 `Available=false`，不返回部分结果充当完整占用。两接口沿用五分钟响应缓存和实时授权检查，`refresh=true` 强制重新测量，前端不周期查询。
 
 个人 `Resources` 包含 `Kind`、`ID`、`Name`、`Calls`、`Active`、`Unknown`、`Carried`、`Spent`、`Reserved`、`PeriodStart`、`PeriodEnd`。模型／工具／连接的统计与准入一致，当前周期以外仍在执行的调用继续计入占用，并以 `Carried` 单列。`Unknown` 表示本地调用已结束但结果或费用未知，不计入 `Active` / `Reserved`，调用次数仅计入原周期；它不是 `Active` 的子集。`PeriodEnd=null` 表示累计周期；沙盒实际用量仍由 `/api/resource-usage` 获取，不将其配置限额当作用量。
 

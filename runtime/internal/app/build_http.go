@@ -82,6 +82,9 @@ func (b *Bundle) buildHTTP(cfg config.Config, adapters adapters, identity *auth.
 			}
 			return usageAnalytics(ctx, store, identity, p, q, admin, prefs.Currency, b.Exchange.Snapshot())
 		},
+		StorageUsage: func(ctx context.Context, p core.Principal, admin bool) (accountview.StorageUsage, error) {
+			return storageUsage(ctx, store, identity, cfg, p, admin)
+		},
 		AdminUsage: func(ctx context.Context, p core.Principal) (accountview.AdminUsage, error) {
 			return adminUsage(ctx, store, identity, p)
 		},

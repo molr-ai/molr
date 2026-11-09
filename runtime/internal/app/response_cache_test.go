@@ -93,3 +93,38 @@ func TestCachedSandboxVisibilityChangesWithGroup(t *testing.T) {
 		t.Fatal(fresh.Code, fresh.Header(), fresh.Body)
 	}
 }
+
+func TestCachedStorageRejectsUnauthorizedAndRevokedSessions(t *testing.T) {
+	t.Parallel()
+	f := newMultiUserFixture(t)
+	get := func(path string, authenticated bool) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "https://runtime.example"+path, nil)
+		r.RemoteAddr = "127.0.0.1:12345"
+		r.Header.Set("X-Forwarded-Proto", "https")
+		if authenticated {
+			r.AddCookie(&http.Cookie{Name: "__Host-molr_session", Value: f.aliceSession.Token.Reveal()})
+		}
+		w := httptest.NewRecorder()
+		f.b.HTTP.Handler().ServeHTTP(w, r)
+		return w
+	}
+	if w := get("/api/account/storage", false); w.Code != 401 {
+		t.Fatal(w.Code, w.Body)
+	}
+	if w := get("/api/admin/storage", true); w.Code != 403 {
+		t.Fatal(w.Code, w.Body)
+	}
+	for i := 0; i < 2; i++ {
+		w := get("/api/account/storage", true)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body)
+		}
+		if i == 1 && w.Header().Get("X-Cache") != "HIT" {
+			t.Fatal(w.Header())
+		}
+	}
+	need(t, f.b.Services.Auth.(*auth.Manager).Logout(t.Context(), f.alice))
+	if w := get("/api/account/storage", true); w.Code != 401 || w.Header().Get("X-Cache") != "" {
+		t.Fatal(w.Code, w.Header())
+	}
+}

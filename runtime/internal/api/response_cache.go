@@ -18,6 +18,8 @@ import (
 // Only these read-only JSON routes opt in. A zero duration disables a route.
 // Shared catalogs, credentials, commands, streams and execution admission do not.
 var defaultResponseCache = map[string]time.Duration{
+	"GET /api/account/storage":          5 * time.Minute,
+	"GET /api/admin/storage":            5 * time.Minute,
 	"GET /api/account/usage":            5 * time.Minute,
 	"GET /api/account/quotas":           5 * time.Minute,
 	"GET /api/admin/usage/analytics":    5 * time.Minute,

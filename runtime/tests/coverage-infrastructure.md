@@ -111,6 +111,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence` | `PayloadDigest`, `ReplayReceipt` | `TestReceiptReplayPreservesScopeDigestAndErrors`, `TestReceiptAndBusinessWritesRollbackTogether` |
 | `internal/persistence` | `MutateReceipt` | `TestMutateReceiptReplaysAndPropagatesFailures`, `TestReceiptAndBusinessWritesRollbackTogether` |
 | `internal/persistence/sqlitestore` | `Open`, `Store.Close`, `Store.Path`, `Store.Read`, `Store.Write` | `TestStoreCommitRollbackAndReopen` |
+| `internal/persistence/sqlitestore` | `Store.OwnerRecordBytes` | `TestOwnerRecordBytesScopesAndTransactions` |
 | `internal/persistence/sqlitestore` | `Store.FailNextCommit` | `TestStoreReadOnlyCanceledAndCommitFailure` |
 | `internal/persistence/sqlitestore` | `Store.Snapshot` | `TestStoreScanDeleteAndSnapshot` |
 | `internal/persistence` | `Store.Watch`, `Tx.NotifyAfterCommit` | `internal/persistence/sqlitestore.TestCommitNotificationsSavepointsAndFailures` |

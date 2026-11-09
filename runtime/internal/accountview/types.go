@@ -59,6 +59,19 @@ type StorageCategory struct {
 	Bytes, Files int64
 }
 
+// StorageSize reports availability explicitly; failed scans never become zero usage.
+type StorageSize struct {
+	Bytes     int64
+	Files     int64
+	Available bool
+}
+
+type StorageUsage struct {
+	Database, Attachments, Workspaces StorageSize
+	DatabasePhysical                  bool
+	AsOf                              time.Time
+}
+
 type UsageSummary struct {
 	Tools                                                   []ToolUsage
 	Attachments                                             []StorageCategory

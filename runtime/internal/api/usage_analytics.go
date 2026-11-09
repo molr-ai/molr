@@ -9,6 +9,24 @@ import (
 
 func (s *HTTPServer) usageAnalyticsRoutes() {
 	for _, admin := range []bool{false, true} {
+		path := "GET /api/account/storage"
+		if admin {
+			path = "GET /api/admin/storage"
+		}
+		s.handle(path, func(r *http.Request) (any, error) {
+			if admin {
+				if err := s.options.Accounts.RequireAdministrator(r.Context(), principal(r)); err != nil {
+					return nil, err
+				}
+			}
+			if s.options.StorageUsage == nil {
+				return nil, core.NewError(core.Unavailable, "storage statistics unavailable")
+			}
+			return s.options.StorageUsage(r.Context(), principal(r), admin)
+		})
+	}
+
+	for _, admin := range []bool{false, true} {
 		path := "GET /api/account/usage"
 		if admin {
 			path = "GET /api/admin/usage/analytics"

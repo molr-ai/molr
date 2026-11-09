@@ -51,16 +51,23 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect(member.getByRole('combobox', { name: 'Date range' })).toBeHidden();
     await member.getByRole('tab', { name: 'Storage', exact: true }).click();
     await member.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
-    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Message content');
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Database');
     const personal = await request(member, '/api/account/quotas');
     const stats = await request(page, '/api/admin/usage'), row = stats.Users.find((u: any) => u.UserID === user.ID);
     expect(personal.Summary.Attachments).toEqual([{ Kind: 'text', Bytes: 13, Files: 1 }]);
-    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Text files');
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Message attachments');
     await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('13 B');
     expect(personal.ContextStorage.Bytes).toBeGreaterThan(0);
     expect(personal.ContextStorage.Messages).toBeGreaterThan(0);
     expect(stats.ContextStorage.Bytes).toBeGreaterThanOrEqual(personal.ContextStorage.Bytes);
-    await expect(member.getByRole('region', { name: 'Account context storage', exact: true })).toContainText('deduplicat');
+    const storageUsage = await request(member, '/api/account/storage');
+    expect(storageUsage.Database.Available).toBe(true);
+    expect(storageUsage.DatabasePhysical).toBe(false);
+    expect(storageUsage.Database.Bytes).toBeGreaterThan(personal.ContextStorage.Bytes);
+    expect(storageUsage.Attachments).toEqual({ Bytes: 13, Files: 1, Available: true });
+    expect(storageUsage.Workspaces.Available).toBe(true);
+    expect((await member.request.get('/api/admin/storage')).status()).toBe(403);
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Assistant workspaces');
     expect(personal.ContextStorage.MessageBytes + personal.ContextStorage.ValueBytes + personal.ContextStorage.DocumentBytes).toBe(personal.ContextStorage.Bytes);
     expect(personal.Summary.Tools.reduce((n: number, row: any) => n + row.Calls, 0)).toBe(personal.Summary.ToolCalls);
     await member.getByRole('tab', { name: 'Models', exact: true }).click();
@@ -95,8 +102,8 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect(page.locator('.usage-current')).toHaveAttribute('open', '');
     await expect(page.locator('.usage-current > summary')).toHaveText('Lifetime usage and resources');
     await page.getByRole('tab', { name: 'Storage', exact: true }).click();
-    const storage = page.getByRole('region', { name: 'Global context storage', exact: true });
-    await expect(storage).toContainText('deduplicat');
+    const storage = page.getByRole('region', { name: 'Storage breakdown', exact: true });
+    await expect(storage).toContainText('Data files across all accounts');
     const globalText = await storage.textContent();
     await page.getByRole('tab', { name: 'Models', exact: true }).click();
     const totalMessages = stats.Users.reduce((sum: number, user: any) => sum + user.UserMessages, 0);
@@ -207,7 +214,7 @@ test('usage and sandbox GET responses cache snapshots and explicit refresh repla
   await login(page);
   const year = new Date().getUTCFullYear();
   const dates = `?from=${year}-01-01&until=${year + 1}-01-01`;
-  const paths = ['/api/account/usage' + dates, '/api/account/quotas', '/api/admin/usage/analytics' + dates, '/api/admin/usage', '/api/sandbox', '/api/sandboxes', '/api/sandboxes/local/resources'];
+  const paths = ['/api/account/usage' + dates, '/api/account/quotas', '/api/account/storage', '/api/admin/storage', '/api/admin/usage/analytics' + dates, '/api/admin/usage', '/api/sandbox', '/api/sandboxes', '/api/sandboxes/local/resources'];
   for (const path of paths) {
     const fresh = await page.request.get(path + (path.includes('?') ? '&' : '?') + 'refresh=true');
     expect(fresh.status()).toBe(200);
@@ -231,7 +238,7 @@ test('usage and sandbox GET responses cache snapshots and explicit refresh repla
 
 test('tool and storage failures offer refresh without showing empty totals', async ({ page }) => {
   await login(page);
-  await page.route('**/api/account/quotas*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'fixture unavailable' } }) }));
+  for (const path of ['quotas', 'storage']) await page.route(`**/api/account/${path}*`, route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'fixture unavailable' } }) }));
   await page.goto('/#/account/usage');
   for (const name of ['Tools', 'Storage']) {
     await page.getByRole('tab', { name, exact: true }).click();
@@ -240,6 +247,30 @@ test('tool and storage failures offer refresh without showing empty totals', asy
     await expect(panel.locator('.usage-overview')).toHaveCount(0);
   }
   await page.unroute('**/api/account/quotas*');
+  await page.unroute('**/api/account/storage*');
   await page.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Storage breakdown' })).toBeVisible();
+});
+
+
+test('storage loads on demand and stays idle until refresh', async ({ page }) => {
+  await login(page);
+  let calls = 0;
+  page.on('request', request => { if (new URL(request.url()).pathname === '/api/account/storage') calls++; });
+  await page.goto('/#/account/usage');
+  await expect(page.locator('.usage-analytics-overview')).toBeVisible();
+  expect(calls).toBe(0);
+  await page.clock.install();
+  await page.getByRole('tab', { name: 'Storage', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Storage breakdown' })).toBeVisible();
+  expect(calls).toBe(1);
+  await page.clock.fastForward(6 * 60 * 1000);
+  expect(calls).toBe(1);
+  const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/account/storage' && new URL(response.url()).searchParams.get('refresh') === 'true');
+  await page.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
+  expect((await refreshed).status()).toBe(200);
+  expect(calls).toBe(2);
+  await page.getByRole('tab', { name: 'Models', exact: true }).click();
+  await page.clock.fastForward(6 * 60 * 1000);
+  expect(calls).toBe(2);
 });

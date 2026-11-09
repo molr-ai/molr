@@ -11,7 +11,7 @@ import { useCopy, useQuery } from '../state';
 import { Empty, Loading } from '../interfaces/official/components/common';
 import { MoneyText } from '../interfaces/official/components/Money';
 import { ConstraintsSummary } from '../interfaces/official/features/ResourceConstraints';
-import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary } from '@molr/sdk';
+import type { AccountQuotas, AdminUsageView, StorageUsage, ResourceReference, UsageSummary } from '@molr/sdk';
 import { groupName } from './types';
 import './usage.css';
 
@@ -35,15 +35,6 @@ function Overview({ value }: { value: UsageSummary }) {
     <Metric label={zh ? '预留费用' : 'Reserved spend'}><Amounts values={value.Reserved} /></Metric>
     <Metric label={zh ? '模型调用' : 'Model calls'}>{value.ModelCalls.toLocaleString(locale)}</Metric>
   </dl>;
-}
-function ContextStorage({ global = false }: { global?: boolean }) {
-  const { locale } = useCopy(), zh = locale === 'zh';
-  return <section className="usage-context" aria-label={global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}>
-    <div className="usage-section-heading"><h3>{global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}</h3></div>
-    <p className="usage-note">{global
-      ? (zh ? '跨账号去重后的全局存储，包含等待回收的数据，不受成员筛选影响。' : 'Global storage after deduplication across accounts, including data awaiting collection. Member filters do not affect this total.')
-      : (zh ? '统计本账号引用的数据，账号内去重。跨账号共享数据分别计入各账号，因此账号用量不能直接相加作为全局用量。' : 'Data referenced by your account, deduplicated within this account. Shared data counts toward each account, so account totals cannot be added to obtain global storage.')}</p>
-  </section>;
 }
 function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
   const { locale } = useCopy(), zh = locale === 'zh';
@@ -74,12 +65,12 @@ function UsageTabs({ models, tools, storage }: { models: ReactNode; tools: React
   return <Tabs className="usage-tabs" label={zh ? '用量分类' : 'Usage category'} value={tab} onValueChange={setTab} items={[
     { value: 'models', label: zh ? '模型' : 'Models', content: models },
     { value: 'tools', label: zh ? '工具' : 'Tools', content: tools },
-    { value: 'storage', label: zh ? '存储空间' : 'Storage', content: storage },
+    { value: 'storage', label: zh ? '存储空间' : 'Storage', content: tab === 'storage' ? storage : null },
   ]} />;
 }
-function CurrentToolbar({ storage = false, loading, reload }: { storage?: boolean; loading: boolean; reload: () => void }) {
+function CurrentToolbar({ loading, reload }: { loading: boolean; reload: () => void }) {
   const { locale, t } = useCopy(), zh = locale === 'zh';
-  return <div className="usage-toolbar"><p className="settings-description">{storage ? zh ? '查看当前数据量与存储构成。' : 'Explore current data size and storage composition.' : zh ? '查看各工具的累计调用与执行结果。' : 'Explore lifetime tool calls and outcomes.'}</p><Button size="sm" variant="secondary" disabled={loading} onClick={reload}><RefreshCw size={14} />{t.refresh}</Button></div>;
+  return <div className="usage-toolbar"><p className="settings-description">{zh ? '查看各工具的累计调用与执行结果。' : 'Explore lifetime tool calls and outcomes.'}</p><Button size="sm" variant="secondary" disabled={loading} onClick={reload}><RefreshCw size={14} />{t.refresh}</Button></div>;
 }
 function AsOf({ value }: { value: string }) {
   const { locale } = useCopy();
@@ -107,39 +98,43 @@ function ToolDetails({ value }: { value: UsageSummary }) {
     {rows.length > 20 && <Pagination page={currentPage} totalPages={Math.ceil(rows.length / 20)} onPageChange={setPage} />}
   </section>;
 }
-function StorageDetails({ context, attachments, global = false }: { context: ContextStorageUsage; attachments: UsageSummary['Attachments']; global?: boolean }) {
-  const { locale } = useCopy(), zh = locale === 'zh';
-  const fileBytes = attachments.reduce((n, row) => n + row.Bytes, 0), fileCount = attachments.reduce((n, row) => n + row.Files, 0);
-  const total = context.Bytes + fileBytes;
-  const names: Record<string, string> = { image: zh ? '图片附件' : 'Images', audio: zh ? '音频附件' : 'Audio', video: zh ? '视频附件' : 'Video', text: zh ? '文本附件' : 'Text files', other: zh ? '其他附件与文件' : 'Other files' };
-  const rows = [
-    { Kind: 'messages', Name: zh ? '消息正文' : 'Message content', Bytes: context.MessageBytes, Count: context.Messages },
-    { Kind: 'values', Name: zh ? '工具定义与共享数据' : 'Tool definitions and shared data', Bytes: context.ValueBytes, Count: context.Values },
-    { Kind: 'documents', Name: zh ? '上下文结构与详情' : 'Context structure and details', Bytes: context.DocumentBytes, Count: context.Documents },
-    ...attachments.map(row => ({ ...row, Name: names[row.Kind] ?? row.Kind, Count: row.Files })),
-  ];
-  return <div className="usage-details">
-    <dl className="usage-overview usage-storage-overview">
-      <Metric label={zh ? '已统计数据量' : 'Measured data size'}>{bytes(total)}</Metric>
-      <Metric label={zh ? '上下文数据' : 'Context data'}>{bytes(context.Bytes)}</Metric>
-      <Metric label={zh ? '附件与文件' : 'Attachments and files'}>{bytes(fileBytes)}</Metric>
-      <Metric label={zh ? '文件数量' : 'File count'}>{fileCount.toLocaleString(locale)}</Metric>
-    </dl>
-    <section className="usage-storage-shares" aria-label={zh ? '存储构成' : 'Storage breakdown'}>
-      <div className="usage-section-heading"><h3>{zh ? '存储构成' : 'Storage breakdown'}</h3></div>
-      <div className="usage-storage-bar" aria-hidden="true">
-        {rows.filter(row => row.Bytes > 0).map(row => <span key={row.Kind} style={{ flexGrow: row.Bytes, background: `var(--color-storage-${row.Kind})` }} />)}
-      </div>
-      <dl className="usage-storage-legend">{rows.map(row => {
-        const share = total ? row.Bytes / total * 100 : 0;
-        return <div key={row.Kind}>
-          <dt><span className="usage-storage-dot" style={{ background: `var(--color-storage-${row.Kind})` }} aria-hidden="true" />{row.Name}</dt>
-          <dd>{share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}% · {bytes(row.Bytes)} · {row.Count.toLocaleString(locale)} {zh ? '个对象' : row.Count === 1 ? 'object' : 'objects'}</dd>
-        </div>;
-      })}</dl>
-    </section>
-    <p className="usage-note">{zh ? '附件按已就绪的文件计量，按媒体类型归类。以上不含助理工作区、接入目录、数据库索引、日志和缓存，因此不代表磁盘总占用。工作区实时用量可在助理权限详情中查看。' : 'Attachments count ready files, grouped by media type. Assistant workspaces, connected directories, database indexes, logs and caches are excluded; this is not total disk usage. Live workspace usage is available in assistant permission details.'}</p>
-    <ContextStorage global={global} />
+function StorageDetails({ admin = false, children }: { admin?: boolean; children?: ReactNode }) {
+  const { locale, t } = useCopy(), zh = locale === 'zh';
+  // A workspace scan runs only when this tab is opened or explicitly refreshed.
+  const query = useQuery<StorageUsage>(admin ? '/api/admin/storage' : '/api/account/storage', false, 0);
+  useErrorToast(query.error, query.reload);
+  const data = query.data;
+  const rows = data ? [
+    { key: 'database', name: zh ? '数据库' : 'Database', value: data.Database, description: data.DatabasePhysical ? zh ? '全部账号的数据文件，包含索引与数据库预留空间。' : 'Data files across all accounts, including indexes and allocated database space.' : zh ? '聊天记录、账号资料和设置等账号数据，不分摊共享索引。' : 'Your chat records, account data and settings; shared indexes are excluded.', files: false },
+    { key: 'attachments', name: zh ? '消息附件' : 'Message attachments', value: data.Attachments, description: zh ? '上传的图片、文件与助理交付物。' : 'Uploaded images, files and assistant deliverables.', files: true },
+    { key: 'workspaces', name: zh ? '助理工作区' : 'Assistant workspaces', value: data.Workspaces, description: zh ? '本机托管工作区中的文件、技能与缓存。' : 'Files, skills and caches in locally managed workspaces.', files: true },
+  ] : [];
+  const total = rows.reduce((sum, row) => sum + (row.value.Available ? row.value.Bytes : 0), 0);
+  const complete = rows.every(row => row.value.Available);
+  return <div className="usage-tab-content usage-storage" aria-busy={query.loading}>
+    <div className="usage-storage-heading">
+      <dl className="usage-storage-total"><Metric label={data && !complete ? zh ? '已统计空间' : 'Measured storage' : admin ? zh ? '服务存储用量' : 'Service storage usage' : zh ? '账号存储用量' : 'Account storage usage'}>{rows.some(row => row.value.Available) ? bytes(total) : '—'}</Metric></dl>
+      <Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button>
+    </div>
+    {!data ? query.loading ? <Loading /> : <Empty title={zh ? '存储用量暂时无法加载' : 'Storage usage is temporarily unavailable'} action={<Button variant="secondary" size="sm" onClick={query.reload}>{zh ? '重试' : 'Retry'}</Button>} /> : <>
+      <section className="usage-storage-shares" aria-label={zh ? '存储构成' : 'Storage breakdown'}>
+        <div className="usage-storage-bar" aria-hidden="true">
+          {rows.filter(row => row.value.Available && row.value.Bytes > 0).map(row => <span key={row.key} style={{ flexGrow: row.value.Bytes, background: `var(--color-storage-${row.key})` }} />)}
+        </div>
+        <dl className="usage-storage-categories">{rows.map(row => {
+          const share = total ? row.value.Bytes / total * 100 : 0;
+          return <div key={row.key}>
+            <dt><span className="usage-storage-dot" style={{ background: `var(--color-storage-${row.key})` }} aria-hidden="true" /><span>{row.name}</span><small>{!row.value.Available ? '—' : `${share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}%`}</small></dt>
+            <dd><strong>{row.value.Available ? bytes(row.value.Bytes) : zh ? '暂无法统计' : 'Unavailable'}</strong>{row.files && row.value.Available && <small>{row.value.Files.toLocaleString(locale)} {zh ? '个文件' : row.value.Files === 1 ? 'file' : 'files'}</small>}</dd>
+            <p>{row.description}</p>
+          </div>;
+        })}</dl>
+      </section>
+      {!complete && <p className="usage-note" role="status">{zh ? '部分用量暂无法统计，总量与占比仅包含已统计部分，可刷新重试。' : 'Some usage is unavailable. Totals and shares cover measured categories only; refresh to retry.'}</p>}
+      <p className="usage-note">{zh ? '统计数据库、消息附件和本机托管工作区，不含外部接入目录及服务日志。' : 'Covers the database, message attachments and locally managed workspaces; excludes connected directories and service logs.'}</p>
+      {children}
+      <AsOf value={data.AsOf} />
+    </>}
   </div>;
 }
 export function AccountUsage() {
@@ -168,10 +163,7 @@ export function AccountUsage() {
   </div>} tools={<div className="usage-tab-content" aria-busy={query.loading}>
     <CurrentToolbar loading={query.loading} reload={query.reload} />
     {data ? <><ToolDetails value={data.Summary} />{allowances('tools')}<AsOf value={data.AsOf} /></> : pending}
-  </div>} storage={<div className="usage-tab-content" aria-busy={query.loading}>
-    <CurrentToolbar storage loading={query.loading} reload={query.reload} />
-    {data ? <><StorageDetails context={data.ContextStorage} attachments={data.Summary.Attachments} />{allowances('storage')}<AsOf value={data.AsOf} /></> : pending}
-  </div>} /></div>;
+  </div>} storage={<StorageDetails>{allowances('storage')}</StorageDetails>} /></div>;
 }
 function aggregate(rows: UsageSummary[]): UsageSummary {
   const result: UsageSummary = { Tools: [], Attachments: [], UserID: '', Username: '', DisplayName: '', GroupID: '', UserMessages: 0, ModelCalls: 0, ToolCalls: 0, ConnectionCalls: 0, AttachmentBytes: 0, Active: 0, Unknown: 0, Spent: [], Reserved: [] };
@@ -208,8 +200,5 @@ export function AdminUsage() {
   </div>} tools={<div className="usage-tab-content" aria-busy={query.loading}>
     <CurrentToolbar loading={query.loading} reload={query.reload} />
     {data ? <><Select size="sm" label={zh ? '成员' : 'Member'} value={toolUser} onValueChange={setToolUser} options={[{ value: 'all', label: zh ? '全部成员' : 'All members' }, ...data.Users.map(row => ({ value: row.UserID, label: row.DisplayName || row.Username }))]} /><ToolDetails value={aggregate(data.Users.filter(row => toolUser === 'all' || row.UserID === toolUser))} /><AsOf value={data.AsOf} /></> : pending}
-  </div>} storage={<div className="usage-tab-content" aria-busy={query.loading}>
-    <CurrentToolbar storage loading={query.loading} reload={query.reload} />
-    {data ? <><StorageDetails global context={data.ContextStorage} attachments={aggregate(data.Users).Attachments} /><AsOf value={data.AsOf} /></> : pending}
-  </div>} /></div>;
+  </div>} storage={<StorageDetails admin />} /></div>;
 }

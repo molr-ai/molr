@@ -73,6 +73,7 @@ type Options struct {
 	Workspace          workspace.Service
 	SkillsCatalog      func(context.Context, core.Principal) (agent.SkillsCatalog, error)
 	Skill              func(context.Context, core.Principal, core.ID, string) (agent.SkillDocument, error)
+	StorageUsage       func(context.Context, core.Principal, bool) (accountview.StorageUsage, error)
 	UsageAnalytics     func(context.Context, core.Principal, accountview.UsageQuery, bool) (accountview.AnalyticsView, error)
 	Maintenance        maintenance.Service
 	Browser            func(context.Context, core.Principal, core.ID, tools.BrowserRequest) (json.RawMessage, error)

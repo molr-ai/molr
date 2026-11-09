@@ -47,7 +47,7 @@ func responseCacheScope(ctx context.Context, store persistence.Store, identity *
 			}
 			fingerprint, err = json.Marshal([]any{user.Version, group})
 			return err
-		case "GET /api/account/quotas", "GET /api/admin/usage":
+		case "GET /api/account/quotas", "GET /api/admin/usage", "GET /api/account/storage", "GET /api/admin/storage":
 			fingerprint, err = json.Marshal([]any{user.Version, group})
 			return err
 		case "GET /api/account/usage", "GET /api/admin/usage/analytics":
