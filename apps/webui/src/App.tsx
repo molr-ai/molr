@@ -68,7 +68,7 @@ function WorkspaceHost() {
   useEffect(() => {
     if (!settings.data) return;
     if (settings.data.Language === 'zh' || settings.data.Language === 'en') setLocale(settings.data.Language);
-    changePreference(settings.data.Theme); changePalette(settings.data.Palette || 'forest');
+    changePreference(settings.data.Theme, { animate: false }); changePalette(settings.data.Palette || 'forest');
     document.documentElement.dataset.reducedMotion = String(settings.data.ReducedMotion);
     return () => { delete document.documentElement.dataset.reducedMotion; };
   }, [settings.data?.Version, changePreference, changePalette, setLocale]);

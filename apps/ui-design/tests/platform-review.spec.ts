@@ -23,6 +23,7 @@ test('theme readers share one live subscription, one DOM update and teardown', a
   await expect.poll(() => page.evaluate(() => (window as any).themeMetrics.active)).toBe(1);
   expect(await page.evaluate(() => (window as any).themeMetrics.peak)).toBe(1);
   await page.getByRole('button', { name: 'Light A', exact: true }).click();
+  await expect(page.getByRole('status', { name: 'Theme A' })).toHaveText('light:light');
   const before = await page.evaluate(() => (window as any).themeMetrics.writes);
   await page.getByRole('button', { name: 'Dark B', exact: true }).click();
   for (const reader of ['A', 'B', 'C']) await expect(page.getByRole('status', { name: `Theme ${reader}` })).toHaveText('dark:dark');

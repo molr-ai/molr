@@ -45,7 +45,7 @@ function App() {
   const { theme, changePreference } = useTheme();
   const { palette, changePalette } = usePalettePreference('molr-desktop-palette', theme);
   useLayoutEffect(() => {
-    changePreference(state.appearance.theme);
+    changePreference(state.appearance.theme, { animate: false });
     changePalette(state.appearance.palette);
   }, [state.appearance.theme, state.appearance.palette, changePreference, changePalette]);
   useEffect(() => {

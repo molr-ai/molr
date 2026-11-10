@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './palettes.css';
+@import './theme-transition.css';
 @import './components/ui.css';
 @import './components/library.css';
 @import './components/chat.css';

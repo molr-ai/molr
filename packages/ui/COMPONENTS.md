@@ -239,6 +239,7 @@ npm run test:ui
 
 ## 平台行为约定
 
+- `useTheme.changePreference(preference, { animate?: boolean })` 默认使用 550ms 圆形明暗过渡；外观恢复传入 `animate: false`。减少动态效果或不支持 View Transition 时直接切换。
 - `useTheme` 的所有调用方共享一个外部 store、一组系统主题及 storage 监听，以及一个 documentElement 写入入口；最后一个调用方卸载时释放监听。浏览器存储不可用时仍保持内存中的选择。SSR 返回稳定的 system/light 快照，客户端接入后同步实际设置。
 - Toast 的 document 访问和 portal 容器创建都在客户端进行，服务端渲染不需要浏览器全局对象。
 - Select 是 select-only combobox：关闭态 ArrowUp 打开到第一个可用项，End 打开到最后一项；这是 WAI-ARIA 对应示例的约定。DropdownMenu 是菜单模式，ArrowUp 打开到最后一个动作。两者 typeahead 使用与宿主语言无关的 toLowerCase，避免英文标签被系统区域设置改变。

@@ -1,0 +1,35 @@
+/* Capture final theme colors instead of intermediate hover/color transitions. */
+:root[data-theme-transition] *,
+:root[data-theme-transition] *::before,
+:root[data-theme-transition] *::after { transition: none !important; }
+
+/* Keep both snapshots opaque: only the dark surface is clipped. */
+:root[data-theme-transition]::view-transition-group(root) { animation: none; }
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+:root[data-theme-transition]::view-transition { pointer-events: none; }
+:root[data-theme-transition='dark']::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-dark-expand 550ms cubic-bezier(.4, 0, .2, 1) both;
+}
+:root[data-theme-transition='dark']::view-transition-old(root) { z-index: 0; }
+:root[data-theme-transition='light']::view-transition-old(root) {
+  z-index: 1;
+  animation: theme-dark-contract 550ms cubic-bezier(.4, 0, .2, 1) both;
+}
+:root[data-theme-transition='light']::view-transition-new(root) { z-index: 0; }
+@keyframes theme-dark-expand {
+  from { clip-path: circle(0 at 0 100%); }
+  to { clip-path: circle(var(--theme-transition-radius) at 0 100%); }
+}
+@keyframes theme-dark-contract {
+  from { clip-path: circle(var(--theme-transition-radius) at 100% 100%); }
+  to { clip-path: circle(0 at 100% 100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-transition]::view-transition-old(root),
+  :root[data-theme-transition]::view-transition-new(root) { animation: none; }
+}

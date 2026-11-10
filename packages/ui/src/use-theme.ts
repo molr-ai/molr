@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type Theme = Exclude<ThemePreference, 'system'>;
@@ -67,11 +68,43 @@ function subscribe(listener: () => void) {
     }
   };
 }
-function changePreference(next: ThemePreference) {
+let activeTransition: ViewTransition | undefined;
+function changePreference(next: ThemePreference, options: { animate?: boolean } = {}) {
   if (typeof window === 'undefined') return;
+  if (currentPreference === next && document.documentElement.dataset.theme === getSnapshot().theme) return;
   currentPreference = next;
   try { window.localStorage.setItem(storageKey, next); } catch { /* In-memory changes still notify every consumer. */ }
-  synchronize();
+  const root = document.documentElement;
+  const theme = getSnapshot().theme;
+  activeTransition?.skipTransition();
+  activeTransition = undefined;
+  delete root.dataset.themeTransition;
+  root.style.removeProperty('--theme-transition-radius');
+  const reducedMotion = root.dataset.reducedMotion === 'true' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (options.animate === false || reducedMotion || document.visibilityState !== 'visible' ||
+      !document.startViewTransition || root.dataset.theme === theme) {
+    // getSnapshot above may already have changed the store; always notify readers.
+    applyTheme(theme);
+    for (const listener of listeners) listener();
+    return;
+  }
+  root.dataset.themeTransition = theme;
+  root.style.setProperty('--theme-transition-radius', `${Math.hypot(window.innerWidth, window.innerHeight)}px`);
+  const transition = document.startViewTransition(() => {
+    flushSync(() => {
+      applyTheme(getSnapshot().theme);
+      for (const listener of listeners) listener();
+    });
+  });
+  activeTransition = transition;
+  // Skipped transitions (rapid input, hidden document) still commit the preference.
+  void transition.ready.catch(() => {});
+  void transition.finished.catch(() => {}).finally(() => {
+    if (activeTransition !== transition) return;
+    activeTransition = undefined;
+    delete root.dataset.themeTransition;
+    root.style.removeProperty('--theme-transition-radius');
+  });
 }
 
 /** One browser subscription and one DOM writer, shared by every hook consumer. */
