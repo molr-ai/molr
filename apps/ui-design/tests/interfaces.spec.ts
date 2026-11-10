@@ -5,7 +5,18 @@ async function panel(page: Page, name = 'Web') { await page.locator('#interfaces
 async function chat(page: Page, name = 'Web', assistant = 'Molr') { const ui = await panel(page, name); await selectAssistant(ui, assistant); return ui; }
 async function say(ui: Locator, text: string) { await ui.getByRole('textbox', { name: 'Message your assistant' }).fill(text); await ui.getByRole('button', { name: 'Send', exact: true }).click(); }
 async function tasks(page: Page, ui: Locator, title?: RegExp) { await ui.locator('.conversation-header').getByRole('button', { name: 'Plans', exact: true }).click(); const drawer = page.getByRole('dialog'); if (title) await drawer.getByRole('button', { name: title }).click(); return drawer; }
-test.beforeEach(async ({ page }) => { await page.goto('/#interfaces'); await page.evaluate(() => { localStorage.removeItem('molr-assistant-prototype-v1'); localStorage.setItem('molr-ui-design-locale', 'en'); }); await page.reload(); });
+async function unreadCount(page: Page) {
+  return page.evaluate(() => {
+    const assistant = JSON.parse(localStorage.getItem('molr-assistant-prototype-v1')!).assistants[0];
+    return assistant.messages.filter((message: { role: string }) => message.role === 'assistant').length - assistant.readMessageCount;
+  });
+}
+test.beforeEach(async ({ page }) => {
+  // Each test has fresh storage. Set the locale before rendering the showcase,
+  // and leave demo state intact when a test reloads to verify persistence.
+  await page.addInitScript(() => localStorage.setItem('molr-ui-design-locale', 'en'));
+  await page.goto('/#interfaces');
+});
 
 test('chat has a single identity header with message copy and feedback controls', async ({ page }) => {
   const ui = await chat(page);
@@ -62,7 +73,6 @@ test('task revisions remain in the conversation and preserve previous deliverabl
 });
 
 test('unread counts stay isolated and hidden previews never mark a conversation read', async ({ page }) => {
-  const unread = () => page.evaluate(() => { const a = JSON.parse(localStorage.getItem('molr-assistant-prototype-v1')!).assistants[0]; return a.messages.filter((m: {role: string}) => m.role === 'assistant').length - a.readMessageCount; });
   const ui = await panel(page);
   const list = await assistantList(ui);
   await expect(list.getByRole('button', { name: 'Molr', exact: true }).locator('.assistant-unread')).toHaveCount(0);
@@ -74,26 +84,32 @@ test('unread counts stay isolated and hidden previews never mark a conversation 
   const cli = await panel(page, 'CLI');
   await cli.getByRole('textbox', { name: 'Terminal command' }).fill('say Hello while hidden');
   await cli.getByRole('textbox', { name: 'Terminal command' }).press('Enter');
-  await expect.poll(unread).toBe(1);
+  await expect.poll(() => unreadCount(page)).toBe(1);
   await chat(page);
   await expect.poll(() => ui.getByRole('log').evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(2);
   await assistantList(ui);
   await expect(list.getByRole('button', { name: 'Molr', exact: true }).locator('.assistant-unread')).toHaveCount(0);
-  // Resizing and hiding must also preserve deliberate history reading.
-  await chat(page);
-  await ui.getByRole('log').evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); });
-  await assistantList(ui);
-  await panel(page, 'CLI');
-  await cli.getByRole('textbox', { name: 'Terminal command' }).fill('say Another hidden reply');
-  await cli.getByRole('textbox', { name: 'Terminal command' }).press('Enter');
-  await expect.poll(unread).toBe(1);
-  await chat(page);
-  expect(await ui.getByRole('log').evaluate(el => el.scrollTop)).toBe(0);
-  expect(await unread()).toBe(1);
-  await ui.getByRole('log').evaluate(el => { el.scrollTop = el.scrollHeight; });
-  await expect.poll(unread).toBe(0);
   const mobile = await chat(page, 'Mobile', '旅行助理');
   await expect(mobile.locator('.conversation-status')).toHaveText('Idle');
+});
+
+test('hidden replies preserve history reading until the conversation returns to the bottom', async ({ page }) => {
+  const ui = await chat(page);
+  await say(ui, 'Hello before reading history');
+  await expect(ui.getByRole('log')).toContainText('I hear you');
+  await expect.poll(() => unreadCount(page)).toBe(0);
+  await expect.poll(() => ui.getByRole('log').evaluate(el => el.scrollTop)).toBeGreaterThan(50);
+  await ui.getByRole('log').evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); });
+  await assistantList(ui);
+  const cli = await panel(page, 'CLI');
+  await cli.getByRole('textbox', { name: 'Terminal command' }).fill('say Another hidden reply');
+  await cli.getByRole('textbox', { name: 'Terminal command' }).press('Enter');
+  await expect.poll(() => unreadCount(page)).toBe(1);
+  await chat(page);
+  expect(await ui.getByRole('log').evaluate(el => el.scrollTop)).toBe(0);
+  expect(await unreadCount(page)).toBe(1);
+  await ui.getByRole('log').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await expect.poll(() => unreadCount(page)).toBe(0);
 });
 
 test('Mobile search previews results without marking conversations read until one is opened', async ({ page }) => {
@@ -174,13 +190,13 @@ test('assistant permissions remain isolated through task drawers', async ({ page
   await expect(resumed.locator('.ip-detail-meta')).toContainText('In progress');
 });
 
-test('chat and drawers stay within bounds and screenshots capture the final layout', async ({ page }, info) => {
-  for (const name of ['Web', 'Desktop', 'Mobile']) {
+for (const name of ['Web', 'Desktop', 'Mobile']) {
+  test(`${name} chat and drawers stay within bounds and screenshots capture the final layout`, async ({ page }, info) => {
     const ui = await chat(page, name);
     expect(await ui.locator('.interface-preview.ip-shell').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await ui.screenshot({ path: `/tmp/molr-conversation-${name}-${info.project.name}.png` });
+    await ui.screenshot({ path: info.outputPath(`conversation-${name}.png`) });
     const drawer = await tasks(page, ui);
-    await drawer.screenshot({ path: `/tmp/molr-tasks-${name}-${info.project.name}.png` });
+    await drawer.screenshot({ path: info.outputPath(`tasks-${name}.png`) });
     await drawer.getByRole('button', { name: 'Close plans' }).click();
-  }
-});
+  });
+}
