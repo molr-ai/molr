@@ -448,9 +448,9 @@ test('waiting notices explain real pricing, permission and budget blockers', asy
       await page.reload();
       await expect(notice).toContainText('Model prices are not configured');
       await notice.getByRole('button', { name: 'Configure model prices', exact: true }).click();
-      const pricing = page.getByRole('dialog', { name, exact: true });
+      const pricing = page.locator('.provider-models-panel');
       await expect(pricing).toBeVisible();
-      await expect(pricing.getByRole('button', { name, exact: true })).toBeVisible();
+      await expect(pricing.getByRole('heading', { name, exact: true })).toBeVisible();
     } else if (reason === 'model_not_authorized') {
       await expect(notice).toContainText('The assistant cannot call this model');
       await notice.getByRole('button', { name: 'Manage model access', exact: true }).click();
@@ -959,7 +959,7 @@ test('provider API key is stored in the vault and used for model discovery', asy
   await expect(deletion).toContainText('Assistants and chat history are kept.');
   await expect(deletion.locator('.ui-dialog__body')).toHaveCount(0);
   await deletion.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(renamed).toBeVisible();
+  await expect(page.locator('.provider-models-panel').getByRole('heading', { name: name + ' renamed', exact: true })).toBeVisible();
   await cardAction(page, renamed, 'Delete provider');
   await deletion.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(deletion).not.toBeVisible();
@@ -1064,7 +1064,7 @@ test('disconnected providers can be deleted while assistants are kept', async ({
   await openProviderModels(card);
   await cardAction(page, card, 'Disconnect resource');
   await page.getByRole('dialog', { name: 'Disconnect resource', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
-  await card.getByRole('button', { name: 'More', exact: true }).click();
+  await page.locator('.provider-models-panel').getByRole('button', { name: 'More', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Check connection', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
@@ -1193,6 +1193,7 @@ test('task controls and protected data export reach the backend', async ({ page 
   await tasks.getByRole('button', { name: 'Pause task', exact: true }).click(); await expect(tasks.getByRole('button', { name: 'Resume task', exact: true })).toBeVisible();
   while (await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).count()) await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click();
   await tasks.getByRole('button', { name: 'Cancel task', exact: true }).click(); await page.getByRole('dialog', { name: 'Cancel task', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(tasks.locator('.plan-execution summary')).toContainText('Canceled');
+  await expect(page.getByRole('dialog', { name: 'Cancel task', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   await openUserSettings(page);
   await expect(settingsNavItem(page, 'Model credentials')).toHaveCount(0);
@@ -1343,6 +1344,7 @@ test('search matches the shared design, filters real results and opens tasks', a
   const tasks = chatPanel(page, 'Plan details');
   await expect(tasks.getByRole('heading', { name: task.Goal, exact: true })).toBeVisible();
   await expect(tasks.locator('.plan-execution[open]')).toContainText(task.Goal);
+  await expect(page.getByRole('dialog', { name: 'Cancel task', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
   else await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();

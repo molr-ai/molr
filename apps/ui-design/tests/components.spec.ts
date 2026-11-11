@@ -432,7 +432,7 @@ test('code highlighting preserves source, adapts to theme and scrolls without wi
   const currentTheme = await page.locator('html').getAttribute('data-theme');
   await page.getByRole('combobox', { name: 'Appearance', exact: true }).click();
   await page.getByRole('option', { name: currentTheme === 'dark' ? /^Light / : /^Dark / }).click();
-  expect(await key.evaluate(el => getComputedStyle(el).color)).not.toBe(propertyColor);
+  await expect(key).not.toHaveCSS('color', propertyColor);
   await demo.getByText('Edit sample content', { exact: true }).click();
   const input = demo.getByRole('textbox', { name: 'Code source', exact: true });
   const unsafe = JSON.stringify({ text: '</code><img src=x onerror="window.codeExecuted=true">', number: 42, nil: null }, null, 2);

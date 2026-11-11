@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { chatPanel } from './chat-panel';
 import { test, expect, type Page } from '@playwright/test';
 import type { Assistant, Model, Resource, Settings } from '@molr/sdk';
@@ -131,18 +132,17 @@ test('every route and settings section stays within the WebView', async ({ page 
     });
     await test.step('resource categories and sandbox sections', async () => {
       await visit(page, `resources/${resource.ID}`, '.resources-workspace');
-      const provider = page.getByRole('dialog', { name: resource.Name, exact: true });
+      const provider = page.locator('.provider-models-panel');
       await expect(provider).toBeVisible();
       await checkPageHeight(page);
-      await provider.getByRole('button', { name: 'Close', exact: true }).click();
-      await expect(provider).toHaveCount(0);
+      await expect(provider.getByRole('heading', { name: resource.Name, exact: true })).toBeVisible();
       const categories = page.locator('.resources-categories > [role="tablist"]').getByRole('tab');
       await expect(categories).toHaveText(['Models', 'Tools', 'Skills', 'Sandboxes']);
       for (const tab of await categories.all()) {
         await tab.click(); await expect(tab).toHaveAttribute('aria-selected', 'true');
         await checkPageHeight(page);
       }
-      await expect(page.locator('.sandbox-detail')).toBeVisible();
+      await openSandboxDetails(page);
       for (const tab of await page.locator('.sandbox-detail').getByRole('tab').all()) {
         await tab.click(); await expect(tab).toHaveAttribute('aria-selected', 'true');
         await checkPageHeight(page);

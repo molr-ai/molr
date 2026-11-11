@@ -294,7 +294,7 @@
 .theme-mini-card > span:first-child { background: var(--color-accent); }
 .theme-mini-action { height: 11px; width: 32%; margin-left: auto; border-radius: 3px; background: var(--color-primary); }
 .theme-option__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 7px 5px; font-size: 13px; font-weight: 550; }
-.theme-option__heading > span:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
+.theme-option__heading > span:first-child { min-width: 0; overflow-wrap: anywhere; display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
 .theme-option__heading small { color: var(--color-text-muted); font: 9px var(--font-mono); }
 .theme-option__check { display: grid; place-items: center; width: 19px; height: 19px; flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 50%; }
 .theme-option[aria-pressed='true'] .theme-option__check { background: var(--color-primary); color: var(--color-on-primary); border-color: transparent; }

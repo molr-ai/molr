@@ -156,12 +156,12 @@ test('menus use primary, list backgrounds use the theme canvas, and hover uses a
       const icons = [...el.querySelectorAll('.settings-nav-icon')]; return icons.map(icon => getComputedStyle(icon).color);
     });
     expect(new Set(iconColors).size).toBe(1);
-    const statusBefore = await sandbox.locator('.sandbox-connection-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
+    const statusBefore = await sandbox.locator('.resource-sidebar-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
     await sandbox.locator('[data-sliding-item="remote"]').hover(); expect(await hierarchy()).toBe(true);
     const sandboxIcons = await sandbox.locator('.sandbox-item > svg').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
     expect(new Set(sandboxIcons).size).toBe(1);
     await sandbox.locator('[data-sliding-item="remote"]').click(); await settled(sandbox); expect(await hierarchy()).toBe(true);
-    expect(await sandbox.locator('.sandbox-connection-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color))).toEqual(statusBefore);
+    expect(await sandbox.locator('.resource-sidebar-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color))).toEqual(statusBefore);
     await sandbox.locator('[data-sliding-item="local"]').click(); await settled(sandbox);
     await page.mouse.move(900, 700); await settled(assistant); await settled(settings);
     expect(await foregrounds(assistant)).toEqual(beforeAssistant); expect(await foregrounds(settings)).toEqual(beforeSettings);
@@ -196,7 +196,7 @@ test('sandbox highlight follows selection while hover preserves position and con
   await page.goto('/tests/fixtures/sliding-highlight.html?colors');
   const list = page.locator('.sandbox-list'), remote = list.locator('[data-sliding-item="remote"]'); await settled(list);
   const position = () => list.evaluate(el => getComputedStyle(el, '::before').transform);
-  const statuses = () => list.locator('.sandbox-connection-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
+  const statuses = () => list.locator('.resource-sidebar-state').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
   const initial = await position(), before = await statuses();
   await remote.hover(); expect(await position()).toBe(initial); expect(await statuses()).toEqual(before);
   await remote.click(); await expect(remote).toHaveAttribute('aria-pressed', 'true'); await settled(list);
