@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { expect, test, type Page } from '@playwright/test';
 import type { Model, Plan, PlanEvent } from '@molr/sdk';
 
@@ -32,8 +33,9 @@ test('sandbox loading replaces the workspace and refresh retains its content', a
     await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
     await requested.promise;
     await expect(workspace.locator('.loading')).toHaveCount(1);
-    await expect(workspace.locator('.sandbox-layout, .sandbox-mobile-switch')).toHaveCount(0);
+    await expect(workspace.locator('.sandbox-layout')).toHaveCount(0);
     response.release();
+    await openSandboxDetails(page);
     await expect(workspace.locator('.sandbox-detail')).toBeVisible();
     await expect(workspace.locator('.loading')).toHaveCount(0);
 

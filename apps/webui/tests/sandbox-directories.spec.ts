@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,7 @@ test('connect an unrestricted local directory and keep assistant authorization s
     await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
     await page.getByRole('tab', { name: 'Storage', exact: true }).click();
     const grants = await (await page.request.get('/api/grants')).json();
     await page.getByRole('button', { name: 'Connect directory', exact: true }).click();

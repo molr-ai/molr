@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalPresence, Drawer, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
-import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
 export type { SandboxView } from '@molr/sdk';
@@ -17,6 +17,7 @@ import { api, APIError, onMutation } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
+import { useNavigation } from '../../../navigation';
 import { sandboxReason } from '../../../sandbox';
 import { SettingsHelp } from '../components/SettingsHelp';
 import { ActionCancelled, Confirm, EditDialog, Empty, Loading, useAction } from '../components/common';
@@ -33,8 +34,11 @@ function statusLabel(sandbox: SandboxView, copy: ReturnType<typeof useSandboxCop
 }
 export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[]; resourceID?: string }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), query = useQuery<SandboxView[]>('/api/sandboxes'), check = useAction();
-  const compact = useBreakpoint('compact');
-  const [selected, setSelected] = useSandboxPreference<string>('sandbox', 'local', value => /^[A-Za-z0-9_-]{1,128}$/.test(value));
+  const mobile = useBreakpoint('mobile'), compact = useBreakpoint('compact'), { sandboxID, navigateSandbox } = useNavigation();
+  const listTrigger = useRef<HTMLButtonElement | null>(null), backButton = useRef<HTMLButtonElement>(null);
+  const [preferred, setPreferred] = useSandboxPreference<string>('sandbox', 'local', value => /^[A-Za-z0-9_-]{1,128}$/.test(value));
+  const selected = sandboxID || preferred;
+  const setSelected = (id: string) => { setPreferred(id); navigateSandbox(id); };
   const [kind, setKind] = useSandboxPreference<SandboxPermission>('kind', 'storage', value => kinds.includes(value as SandboxPermission));
   const details = useQuery<SandboxResourceDetail[]>(query.data?.some(item => item.ID === selected) ? `/api/sandboxes/${selected}/resources` : null);
   const grants = useQuery<Grant[]>('/api/grants', true), assistants = useQuery<Assistant[]>('/api/assistants', true);
@@ -47,9 +51,14 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const [reconnecting, setReconnecting] = useState<Resource | null>(null), [deleting, setDeleting] = useState<Resource | null>(null);
   useEffect(() => { setShowDisconnected(false); }, [selected, kind]);
   const target = resources.find(resource => resource.ID === resourceID);
-  useEffect(() => { if (target && kinds.includes(target.Kind as SandboxKind)) { setSelected(target.SandboxID || 'local'); setKind(target.Kind as SandboxKind); } }, [target?.ID, target?.SandboxID, target?.Kind]);
-  useEffect(() => { if (query.data?.length && !query.data.some(item => item.ID === selected)) setSelected(query.data[0].ID); }, [query.data, selected]);
+  useEffect(() => { if (target && kinds.includes(target.Kind as SandboxKind)) { setPreferred(target.SandboxID || 'local'); setKind(target.Kind as SandboxKind); } }, [target?.ID, target?.SandboxID, target?.Kind]);
+  useEffect(() => { if (query.data?.length && !query.data.some(item => item.ID === selected)) setPreferred(query.data[0].ID); }, [query.data, selected]);
   const sandbox = query.data?.find(item => item.ID === selected);
+  const detailVisible = !!sandbox && (!mobile || !!sandboxID || !!target && kinds.includes(target.Kind as SandboxKind));
+  useEffect(() => {
+    if (mobile && detailVisible) backButton.current?.focus({ preventScroll: true });
+    else if (mobile) listTrigger.current?.focus({ preventScroll: true });
+  }, [mobile, detailVisible, selected]);
   const workspace = resources.find(resource => (resource.SandboxID || 'local') === selected && resource.Provider === 'managed-workspace');
   const rows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind && resource.Provider !== 'managed-workspace' && resource.State !== 'disconnected');
   const disconnectedRows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind && resource.Provider !== 'managed-workspace' && resource.State === 'disconnected');
@@ -88,16 +97,15 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   };
   if (query.loading && !query.data) return <div className="sandbox-workspace"><Loading /></div>;
   return <div className="sandbox-workspace">
-    <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
     <div className="sandbox-layout">
-      <aside className="sandbox-sidebar">
-        <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={compact} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item resource-sidebar-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={() => setSelected(item.ID)}>
-          <Server size={17} /><span className="resource-sidebar-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`resource-sidebar-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>
+      <aside className="sandbox-sidebar" hidden={mobile && detailVisible}>
+        <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={mobile} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item resource-sidebar-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={event => { listTrigger.current = event.currentTarget; setSelected(item.ID); }}>
+          <Server size={17} /><span className="resource-sidebar-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`resource-sidebar-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>{mobile && <ChevronRight className="sandbox-item-caret" size={16} aria-hidden="true" />}
         </button></li>)}</SlidingHighlight>
         <Button className="sandbox-connect" variant="secondary" size="sm" onClick={() => setConnecting(true)}><Plus size={15} />{copy.connect}</Button>
       </aside>
-      {sandbox && <div className="sandbox-detail">
-        <div className="sandbox-overview"><header className="sandbox-heading"><div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
+      {sandbox && <div className="sandbox-detail" hidden={!detailVisible}>
+        <div className="sandbox-overview"><header className="sandbox-heading">{mobile && <IconButton ref={backButton} label={t.back} onClick={() => navigateSandbox()}><ChevronLeft size={18} /></IconButton>}<div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
           <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} loading={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
         </header>
         <div className="sandbox-overview-meta"><div className="sandbox-capabilities">

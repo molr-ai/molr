@@ -29,7 +29,7 @@ import './resources.css';
 type Tab = 'model' | 'tool' | 'skill' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
-  const { navigate } = useNavigation();
+  const { navigate, sandboxID } = useNavigation();
   const mobile = useBreakpoint('mobile'), providerTrigger = useRef<HTMLButtonElement | null>(null);
   const { principal } = useSession(), { toast } = useToast(), pricingAction = useAction();
   const refreshPrices = () => void pricingAction.run(async () => {
@@ -44,6 +44,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const [editingProvider, setEditingProvider] = useState<Resource | null>(null), [deletingProvider, setDeletingProvider] = useState<Resource | null>(null), [disconnect, setDisconnect] = useState<Resource | null>(null);
   const target = query.data?.find(resource => resource.ID === resourceID);
   useEffect(() => { if (target) { setTab(target.Kind === 'model' || target.Kind === 'tool' ? target.Kind : 'sandbox'); } }, [target?.ID, target?.Kind]);
+  useEffect(() => { if (sandboxID) setTab('sandbox'); }, [sandboxID]);
   const providers = (query.data ?? []).filter(resource => resource.Kind === 'model');
   const provider = providers.find(resource => resource.ID === resourceID) ?? (mobile ? undefined : providers[0]);
   useEffect(() => { if (!resourceID) providerTrigger.current?.focus({ preventScroll: true }); }, [resourceID]);

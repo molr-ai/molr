@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { test, expect, type Page } from '@playwright/test';
 import { mkdtemp, realpath, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ async function login(page: Page) {
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
 }
 async function post(page: Page, path: string, data: object, version = 0) {
   const base = new URL(page.url()).origin, port = new URL(base).port;
@@ -38,6 +40,7 @@ for (const kind of ['storage', 'network'] as const) test(`${kind} disconnect, re
     expect(blockedError.message).toBe('Disconnect this resource before deleting it.');
     await page.reload();
     await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
     await page.getByRole('tab', { name: kind === 'storage' ? 'Storage' : 'Network', exact: true }).click();
     const main = page.locator('.sandbox-detail');
     const row = main.locator(`[data-resource-id="${resource.ID}"]`);
@@ -94,6 +97,7 @@ for (const kind of ['storage', 'network'] as const) test(`${kind} disconnect, re
     await json(await post(page, '/api/grants/revoke', { GrantID: grant.ID }, grant.Version));
     await page.reload();
     await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
     await page.getByRole('tab', { name: kind === 'storage' ? 'Storage' : 'Network', exact: true }).click();
     await main.getByRole('button', { name: /Disconnected resources ·/ }).click();
     await disconnected.getByRole('button', { name: `More · ${name}`, exact: true }).click();

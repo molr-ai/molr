@@ -144,6 +144,8 @@ The shared `ChatComposerCommand.children` field defines nested choices and `alia
 
 ## Sandbox compute status
 
+The sandbox page shares the model page’s list/detail layout and mobile breakpoint: desktop and tablet show both panes, while phones open the list first and then details. Returning restores list scroll and entry focus. Selection uses `/#/resources?sandbox=<id>` for direct links, reloads, and browser Back; resource deep links still locate the owning sandbox and section. The Tabs panel supplies the section’s top spacing.
+
 Overview, connection tests and Compute share the controlled-compute state decision, checking disconnected, disabled and offline states before disabled execution or available/unavailable controlled compute. Controlled compute uses `Capabilities.Shell`; Full Access independently uses `Capabilities.FullAccess` and must not make controlled compute appear available. Offline snapshots do not advertise current availability. Unavailable compute hides requestable capacity and shows its cause and recovery steps. Compute cards and new ordinary grants follow capability availability, while existing grants remain viewable and revocable. Empty states provide storage, network or compute-specific guidance. Full Access keeps its own section describing the full storage, compute and network scope.
 
 

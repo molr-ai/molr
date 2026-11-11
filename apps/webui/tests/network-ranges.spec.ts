@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { test, expect } from '@playwright/test';
 
 const port = Number(process.env.MOLR_TEST_SECOND_PORT ?? Number(process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193) + 1);
@@ -9,6 +10,7 @@ test('network connection displays multiple address and port ranges and persists 
   await page.getByLabel('Password', { exact: true }).fill('second-webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: 'Network', exact: true }).click();
   await page.getByRole('button', { name: 'Add network', exact: true }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Add network', exact: true });
@@ -37,6 +39,7 @@ test('network connection displays multiple address and port ranges and persists 
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: 'Network', exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   const resources = await (await page.request.get(`${origin}/api/resources?kind=network`)).json();
@@ -57,6 +60,7 @@ test('adding another resource for a built-in network preset does not grant assis
   await page.getByLabel('Password', { exact: true }).fill('second-webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: 'Network', exact: true }).click();
   await page.getByRole('button', { name: 'Add network', exact: true }).first().click();
   const dialog=page.getByRole('dialog', {name:'Add network',exact:true});

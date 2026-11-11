@@ -7,6 +7,8 @@ function readRoute(hash = location.hash) {
   let entry = contribution;
   try { entry = decodeURIComponent(contribution); } catch { entry = ''; }
   const id = raw === 'extensions' ? `${rawID}${entry ? '/' + entry : ''}` : rawID;
+  const requestedSandbox = new URLSearchParams(query).get('sandbox') ?? '';
+  const sandboxID = raw === 'resources' && /^[A-Za-z0-9_-]{1,128}$/.test(requestedSandbox) ? requestedSandbox : '';
   const turn = new URLSearchParams(query).get('turn') ?? '';
   const turnID = raw === 'workbench' && /^[A-Za-z0-9_-]{1,128}$/.test(turn) ? turn : '';
   const event = new URLSearchParams(query).get('event') ?? '';
@@ -17,7 +19,7 @@ function readRoute(hash = location.hash) {
   const panel = raw === 'assistants' && ['info','permissions','channel','tasks'].includes(requestedPanel ?? '') ? requestedPanel as 'info'|'permissions'|'channel'|'tasks' : undefined;
   const requestedTask = new URLSearchParams(query).get('task') ?? '';
   const taskID = panel === 'tasks' && /^[A-Za-z0-9_-]{1,128}$/.test(requestedTask) ? requestedTask : '';
-  return { panel, taskID, page: raw === 'todos' || raw === 'schedules' ? 'plans' as const : pages.includes(raw as RoutePage) ? raw as RoutePage : 'assistants' as const, id: (raw === 'extensions' ? /^[a-z0-9.-]+\/(?:[a-z0-9_-]+|@settings|@admin)$/.test(id) : /^[A-Za-z0-9_-]{1,128}$/.test(id)) ? id : '', turnID, eventID, messageID };
+  return { sandboxID, panel, taskID, page: raw === 'todos' || raw === 'schedules' ? 'plans' as const : pages.includes(raw as RoutePage) ? raw as RoutePage : 'assistants' as const, id: (raw === 'extensions' ? /^[a-z0-9.-]+\/(?:[a-z0-9_-]+|@settings|@admin)$/.test(id) : /^[A-Za-z0-9_-]{1,128}$/.test(id)) ? id : '', turnID, eventID, messageID };
 }
 export function guardedNavigation(action: () => void) {
   if (window.dispatchEvent(new CustomEvent('molr:before-navigation', { cancelable: true, detail: action }))) action();
@@ -40,6 +42,9 @@ export function useNavigation() {
     if (messageID) query.set('message', messageID);
     location.hash = `/${page}${id ? `/${(page === 'extensions' ? id.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id))}` : ''}${query.size ? `?${query}` : ''}`;
   }), []);
+  const navigateSandbox = useCallback((id = '') => guardedNavigation(() => {
+    location.hash = `/resources${id ? `?sandbox=${encodeURIComponent(id)}` : ''}`;
+  }), []);
   const closePanel = useCallback(() => {
     if (!readRoute().panel) return;
     const url = new URL(location.href), [path, search = ''] = url.hash.split('?');
@@ -49,5 +54,5 @@ export function useNavigation() {
     history.replaceState(history.state, '', url);
     window.dispatchEvent(new HashChangeEvent('hashchange'));
   }, []);
-  return { ...route, navigate, closePanel };
+  return { ...route, navigate, navigateSandbox, closePanel };
 }

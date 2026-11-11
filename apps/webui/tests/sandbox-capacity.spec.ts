@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
@@ -43,6 +44,7 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: /^(Storage|存储)$/ }).click();
   const summary = page.locator('.sandbox-compute-summary');
   const workspace = page.locator('.sandbox-assistant-workspace');
@@ -79,6 +81,7 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await expect(summary).toContainText(/Usage unavailable|占用信息暂不可用/);
   await page.reload();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: /^(Storage|存储)$/ }).click();
   await expect(workspace).toContainText('Project files');
 });
@@ -104,6 +107,7 @@ test('Windows compute includes shared GPUs without a separate device grant', asy
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: /^(Compute|计算)$/ }).click();
   const summary = page.locator('.sandbox-compute-summary');
   await expect(summary).toContainText('64 GiB');
@@ -142,6 +146,7 @@ test('workspace capacity controls are separate from automatic file access', asyn
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: 'Storage', exact: true }).click();
   await expect(page.getByText('No directories connected', { exact: true })).toBeVisible();
   await page.locator('.sandbox-assistant-workspace').getByRole('button', { name: 'Manage capacity', exact: true }).click();

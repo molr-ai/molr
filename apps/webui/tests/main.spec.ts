@@ -1,3 +1,4 @@
+import { openSandboxDetails, openSandboxList } from './sandbox-navigation';
 import { chatPanel } from './chat-panel';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { selectPlanRange } from './plan-controls';
@@ -1077,8 +1078,9 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await resourceCategory(page, 'Tools').click();
   await expect(page.locator('.tools-catalog-row').filter({ has: page.getByText('Read file', { exact: true }) })).toBeVisible();
   await resourceCategory(page, 'Sandboxes').click();
-  await expect(page.getByRole('button', { name: 'Connect sandbox', exact: true })).toBeVisible();
+  await openSandboxDetails(page);
   await expect(page.getByRole('heading', { name: 'Assistant workspace /work', exact: true })).toBeVisible();
+  await openSandboxList(page);
   await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   for (const label of ['Service URL', 'Connection code']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
@@ -1093,6 +1095,7 @@ test('local command environment is prepared automatically without sandbox paths'
   expect(status.Capabilities.DiskProtection).toBe('file_limit_and_free_space_guard');
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   await resourceCategory(page, 'Sandboxes').click();
+  await openSandboxDetails(page);
   await resourceCategory(page, 'Compute').click();
   await expect(page.getByRole('heading', { name: 'Local sandbox', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Connect compute', exact: true })).toHaveCount(0);
@@ -2642,13 +2645,17 @@ test('sandbox selection persists and connection changes invalidate a successful 
   await login(page);
   await page.goto('/#/resources');
   await resourceCategory(page, 'Sandboxes').click();
+  await openSandboxDetails(page);
   await resourceCategory(page, 'Network').click();
   await page.reload();
   await expect(resourceCategory(page, 'Sandboxes')).toHaveAttribute('aria-selected', 'true');
+  await openSandboxDetails(page);
   await expect(resourceCategory(page, 'Network')).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await openSandboxDetails(page);
   await expect(resourceCategory(page, 'Network')).toHaveAttribute('aria-selected', 'true');
+  await openSandboxList(page);
   await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   const save = dialog.getByRole('button', { name: 'Connect sandbox', exact: true });

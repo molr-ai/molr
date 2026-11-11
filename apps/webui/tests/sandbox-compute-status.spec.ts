@@ -1,3 +1,4 @@
+import { openSandboxDetails } from './sandbox-navigation';
 import { test, expect } from '@playwright/test';
 
 test('compute status separates disabled, controlled execution, full access and offline snapshots', async ({ page }) => {
@@ -18,6 +19,7 @@ test('compute status separates disabled, controlled execution, full access and o
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: /^(Compute|计算)$/ }).click();
   const overview = page.locator('.sandbox-capabilities'), summary = page.locator('.sandbox-compute-summary');
   const refresh = () => page.getByRole('button', { name: /^(Check again|重新检查)$/ }).click();
@@ -78,6 +80,7 @@ test('empty compute uses execution guidance and storage/network have specific de
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
+  await openSandboxDetails(page);
   await page.getByRole('tab', { name: /^(Compute|计算)$/ }).click();
   await expect(page.locator('.sandbox-section')).toContainText('Controlled compute unavailable');
   await expect(page.locator('.sandbox-section')).not.toContainText('No networks exposed');
