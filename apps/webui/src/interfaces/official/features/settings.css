@@ -23,7 +23,7 @@
 .settings-nav-caret { color: var(--color-text-muted); opacity: 0; flex-shrink: 0; }
 
 .settings-panel { flex: 1; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; }
-.settings-pane { position: relative; padding: 24px clamp(20px, 3vw, 28px) 32px; max-width: 760px; }
+.settings-pane { position: relative; padding: 20px 24px; max-width: 760px; }
 .settings-pane:has(.settings-theme) { max-width: 1120px; }
 .settings-pane-header { display: grid; gap: 4px; margin-bottom: 20px; }
 .settings-pane-header h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
@@ -90,7 +90,7 @@
   .settings-nav-icon { width: 20px; height: 20px; }
   .settings-nav-caret { opacity: 1; }
   .settings-panel { overflow: visible; }
-  .settings-pane { padding: 18px 20px 28px; max-width: none; }
+  .settings-pane { max-width: none; }
   .usage-stats { flex-direction: column; }
   .usage-stats > div { padding: 14px 2px; }
   .usage-stats > div + div { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); padding-left: 2px; }
