@@ -230,7 +230,8 @@
   .resources-model-layout { flex-direction: column; }
   .resources-provider-nav { width: 100%; flex: 1; padding: 12px 14px; }
   .resources-provider-nav::after { display: none; }
-  .resources-provider-option { border-radius: 0; }
+  .resources-provider-options { gap: 0; }
+  .resources-provider-option { padding: 13px 0; border-radius: 0; }
   .resources-provider-option + .resources-provider-option { border-top: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent); }
   .resources-provider-caret { align-self: center; }
   .provider-models-heading { padding: 16px; min-height: 72px; font-size: 18px; }

@@ -83,8 +83,8 @@
   .settings-body::after { display: none; }
   .settings-pane-header h2 { display: none; }
   .settings-pane-header:not(:has(p)) { display: none; }
-  .settings-nav { width: auto; margin: 0; padding: 12px 14px; }
-  .settings-nav > :is(button, a) { border-radius: 0; font-size: 14px; }
+  .settings-nav { width: auto; margin: 0; padding: 12px 14px; gap: 0; }
+  .settings-nav > :is(button, a) { padding: 13px 0; border-radius: 0; font-size: 14px; }
   .settings-nav > :is(button, a) + :is(button, a) { border-top: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent); }
   .settings-nav > :is(button, a):hover { background: transparent; }
   .settings-nav-icon { width: 20px; height: 20px; }
