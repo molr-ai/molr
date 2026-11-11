@@ -15,22 +15,29 @@ for (const version of ['Web', 'Desktop', 'Mobile']) {
     await input.fill('Keep this draft');
     const before = await page.evaluate(() => localStorage.getItem('molr-assistant-prototype-v1'));
     const more = shell.locator('.conversation-header').getByRole('button', { name: 'More', exact: true });
+    async function openActions() {
+      // The desktop preview is taller than a phone viewport. Finish the page
+      // scroll before opening its anchored menu so clicking an item cannot
+      // scroll the trigger out of view and dismiss the menu.
+      await more.evaluate(element => element.scrollIntoView({ behavior: 'instant', block: 'center' }));
+      await more.click();
+    }
 
-    await more.click();
+    await openActions();
     await page.getByRole('menuitem', { name: 'Clone assistant', exact: true }).click();
     const clone = page.getByRole('dialog', { name: 'Clone assistant', exact: true });
     await expect(clone).toContainText('Molr');
     await expect(clone).toContainText('memories, message history, and permissions');
     await clone.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(more).toBeFocused();
-    await more.click();
+    await openActions();
     await page.getByRole('menuitem', { name: 'Clone assistant', exact: true }).click();
     await clone.screenshot({ path: `/tmp/molr-clone-${version}-${info.project.name}.png` });
     await clone.getByRole('button', { name: 'Confirm clone', exact: true }).click();
     await expect(clone).not.toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Interaction preview' }).last()).toContainText('No assistants or conversations were changed');
 
-    await more.click();
+    await openActions();
     await page.getByRole('menuitem', { name: 'Dismiss assistant', exact: true }).click();
     const dismiss = page.getByRole('dialog', { name: 'Dismiss assistant', exact: true });
     await expect(dismiss).toContainText('Molr');
@@ -41,7 +48,7 @@ for (const version of ['Web', 'Desktop', 'Mobile']) {
     await page.keyboard.press('Escape');
     await expect(dismiss).not.toBeVisible();
     await expect(more).toBeFocused();
-    await more.click();
+    await openActions();
     await page.getByRole('menuitem', { name: 'Dismiss assistant', exact: true }).click();
     await dismiss.screenshot({ path: `/tmp/molr-dismiss-${version}-${info.project.name}.png` });
     await dismiss.getByRole('button', { name: 'Confirm dismissal', exact: true }).click();

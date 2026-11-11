@@ -325,7 +325,9 @@ test('empty states lead to recovery or creation and tasks reach completion', asy
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog).not.toBeVisible();
   await category(page, 'Data display');
-  await page.clock.install();
+  const taskTime = new Date('2026-01-01T00:00:00Z');
+  await page.clock.install({ time: taskTime });
+  await page.clock.pauseAt(taskTime);
   const task = example(page, 'Task cards');
   await task.getByRole('button', { name: 'Start demo' }).click();
   await page.clock.runFor(6500);
