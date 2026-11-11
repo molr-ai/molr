@@ -90,7 +90,7 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   return <div className="sandbox-workspace">
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
     <div className="sandbox-layout">
-      <aside className="sandbox-sidebar"><div className="sandbox-sidebar-heading"><span>{copy.title}</span><SettingsHelp label={copy.helpLabel} content={copy.help} /></div>
+      <aside className="sandbox-sidebar">
         <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={compact} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={() => setSelected(item.ID)}>
           <Server size={17} /><span className="sandbox-item-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`sandbox-connection-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>
         </button></li>)}</SlidingHighlight>
