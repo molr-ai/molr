@@ -210,10 +210,10 @@
 .sandbox-disconnected-resources { container: sandbox-detail / inline-size; }
 
 .resources-model-layout { display: flex; flex: 1; min-height: 0; min-width: 0; }
-.resources-provider-nav { position: relative; display: flex; flex-direction: column; gap: 16px; width: var(--workspace-sidebar-width); flex-shrink: 0; padding: 9px; min-height: 0; }
-.resources-provider-nav::after { content: ''; position: absolute; right: 0; top: 9px; bottom: 9px; width: 1px; background: var(--color-border); pointer-events: none; }
+.resources-provider-nav { position: relative; display: flex; flex-direction: column; gap: 16px; width: var(--workspace-sidebar-width); flex-shrink: 0; padding: 10px 12px; min-height: 0; }
+.resources-provider-nav::after { content: ''; position: absolute; right: 0; top: 10px; bottom: 10px; width: 1px; background: var(--color-border); pointer-events: none; }
 .resources-provider-options { display: grid; align-content: start; gap: 1px; flex: 1; overflow-y: auto; min-height: 0; }
-.resources-provider-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.resources-provider-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
 .resources-provider-option:hover { background: color-mix(in srgb, var(--color-neutral-bg) 55%, transparent); }
 .resources-provider-option[aria-current] { background: var(--color-selected-bg); }
 .resources-provider-option[aria-current] > svg:first-child { color: var(--color-primary); }
@@ -237,10 +237,10 @@
 .resources-provider-nav[hidden], .resources-provider-detail[hidden] { display: none; }
 @media (--molr-mobile) {
   .resources-model-layout { flex-direction: column; }
-  .resources-provider-nav { width: 100%; flex: 1; padding: 18px 20px 28px; }
+  .resources-provider-nav { width: 100%; flex: 1; }
   .resources-provider-nav::after { display: none; }
   .resources-provider-options { gap: 0; }
-  .resources-provider-option { padding: 13px 0; border-radius: 0; }
+  .resources-provider-option { border-radius: 0; }
   .resources-provider-option + .resources-provider-option { border-top: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent); }
   .resources-provider-option:hover { background: transparent; }
   .resources-provider-option > svg:first-child { width: 20px; height: 20px; }
