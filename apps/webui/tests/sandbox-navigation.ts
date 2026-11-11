@@ -7,6 +7,11 @@ export async function openSandboxDetails(page: Page) {
 }
 
 export async function openSandboxList(page: Page) {
-  if (!(await page.locator('.sandbox-sidebar').isVisible())) await page.locator('.sandbox-heading').getByRole('button', { name: 'Back', exact: true }).click();
+  if (!(await page.locator('.sandbox-sidebar').isVisible())) await page.locator('.resources-header').getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.locator('.sandbox-sidebar')).toBeVisible();
+}
+
+export async function openSandboxConnection(page: Page) {
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect sandbox', exact: true }).click();
 }

@@ -1,3 +1,4 @@
+import { openSandboxConnection } from './sandbox-navigation';
 import { test, expect, type Locator } from '@playwright/test';
 
 async function closeAndCheck(dialog: Locator, button = 'Cancel', removed = true) {
@@ -56,7 +57,7 @@ test('business dialogs retain content across settings, resources, plans, memory 
  }
  await page.goto('/#/resources');
  await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
- await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
+ await openSandboxConnection(page);
  await dialog('Connect sandbox').getByLabel('Service URL', { exact: true }).fill('https://sandbox.example.test');
  await closeAndCheck(dialog('Connect sandbox'));
  await page.getByRole('tab', { name: 'Tools', exact: true }).click();

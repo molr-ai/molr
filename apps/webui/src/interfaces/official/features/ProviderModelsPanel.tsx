@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Badge, Button, IconButton, useBreakpoint } from '@molr/ui';
+import { Badge, Button, IconButton } from '@molr/ui';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { api, APIError } from '@molr/sdk';
 import type { CurrencyContext, Model, Resource } from '@molr/sdk';
@@ -9,8 +9,9 @@ import { Loading, useAction } from '../components/common';
 import { ModelConfigurationForm } from './ModelConfigurationForm';
 
 type Configuration = { resource: Resource; model?: Model; currencyContext: CurrencyContext };
-export function ProviderModelsPanel({ resource, models, loading, actions, connectionState, onClose }: { resource: Resource; models: Model[]; loading: boolean; actions: ReactNode; connectionState: string; onClose: () => void }) {
-  const { t } = useCopy(), mobile = useBreakpoint('mobile'), action = useAction();
+export function ProviderModelsPanel({ resource, models, loading, actions, connectionState, onBusyChange }: { resource: Resource; models: Model[]; loading: boolean; actions: ReactNode; connectionState: string; onBusyChange: (busy: boolean) => void }) {
+  const { t } = useCopy(), action = useAction();
+  useEffect(() => { onBusyChange(action.busy); return () => onBusyChange(false); }, [action.busy, onBusyChange]);
   const [target, setTarget] = useState<{ modelID?: string } | null>(null);
   const [configuration, setConfiguration] = useState<Configuration | null>(null), [error, setError] = useState<unknown>();
   const [attempt, setAttempt] = useState(0);
@@ -38,7 +39,6 @@ export function ProviderModelsPanel({ resource, models, loading, actions, connec
     if (detail) { detailRef.current?.scrollTo(0, 0); backRef.current?.focus({ preventScroll: true }); }
     else if (triggerRef.current) { listRef.current?.scrollTo(0, listScroll.current); triggerRef.current.focus({ preventScroll: true }); }
   }, [detail]);
-  useEffect(() => { if (mobile) backRef.current?.focus({ preventScroll: true }); }, [mobile]);
   function configure(model: Model | undefined, trigger: HTMLButtonElement) {
     listScroll.current = listRef.current?.scrollTop ?? 0;
     triggerRef.current = trigger; action.reset(); setConfiguration(null); setTarget({ modelID: model?.ID });
@@ -47,7 +47,7 @@ export function ProviderModelsPanel({ resource, models, loading, actions, connec
   const title = detail ? target.modelID ? t.resources.configureModel : t.resources.addModel : resource.Name;
   return <section className="provider-models-panel" aria-label={title}>
     <header className="provider-models-heading">
-      {(detail || mobile) && <IconButton ref={backRef} label={t.back} disabled={action.busy} onClick={detail ? back : onClose}><ChevronLeft size={18} /></IconButton>}
+      {detail && <IconButton ref={backRef} label={t.back} disabled={action.busy} onClick={back}><ChevronLeft size={18} /></IconButton>}
       <div className="provider-models-identity"><div className="provider-models-title"><h2>{title}</h2>{!detail && <Badge tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge>}</div>
         {!detail && <p className="provider-models-description">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p>}
       </div>{!detail && <span className="provider-models-actions">{actions}</span>}

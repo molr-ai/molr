@@ -8,7 +8,7 @@ import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useRef, useState } from 'react';
 import { ModalPresence, SlidingHighlight, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast, useBreakpoint } from '@molr/ui';
-import { BookOpen, Bot, ChevronRight, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
+import { BookOpen, Bot, ChevronLeft, ChevronRight, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
 import { DefaultModelSettings } from './DefaultModelSettings';
 import { ProviderModelsPanel } from './ProviderModelsPanel';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
@@ -29,8 +29,8 @@ import './resources.css';
 type Tab = 'model' | 'tool' | 'skill' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
-  const { navigate, sandboxID } = useNavigation();
-  const mobile = useBreakpoint('mobile'), providerTrigger = useRef<HTMLButtonElement | null>(null);
+  const { navigate, navigateSandbox, sandboxID } = useNavigation();
+  const mobile = useBreakpoint('mobile'), providerTrigger = useRef<HTMLButtonElement | null>(null), headerBack = useRef<HTMLButtonElement>(null);
   const { principal } = useSession(), { toast } = useToast(), pricingAction = useAction();
   const refreshPrices = () => void pricingAction.run(async () => {
     const result = await api.post<PricingRefreshResult>('/api/models/refresh-pricing');
@@ -40,6 +40,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   useErrorToast(pricingAction.error, refreshPrices);
   const [status, setStatus] = useState<Record<string, string>>({});
   const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'skill', 'sandbox'].includes(value));
+  const [connectSandbox, setConnectSandbox] = useState(false), [modelBusy, setModelBusy] = useState(false);
   const [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Resource | null>(null), [deletingProvider, setDeletingProvider] = useState<Resource | null>(null), [disconnect, setDisconnect] = useState<Resource | null>(null);
   const target = query.data?.find(resource => resource.ID === resourceID);
@@ -48,7 +49,8 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const providers = (query.data ?? []).filter(resource => resource.Kind === 'model');
   const provider = providers.find(resource => resource.ID === resourceID) ?? (mobile ? undefined : providers[0]);
   useEffect(() => { if (!resourceID) providerTrigger.current?.focus({ preventScroll: true }); }, [resourceID]);
-  const backToProviders = () => { navigate('resources'); };
+  const mobileDetail = mobile && (tab === 'model' && !!provider || tab === 'sandbox' && (!!sandboxID || !!target && ['storage', 'compute', 'network'].includes(target.Kind)));
+  useEffect(() => { if (mobileDetail) headerBack.current?.focus({ preventScroll: true }); }, [mobileDetail, resourceID, sandboxID]);
   useErrorToast(query.error || models.error || action.error, () => { query.reload(); models.reload(); });
   const refreshModels = useMutation([]);
   const providerActions = (resource: Resource) => <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[
@@ -67,20 +69,20 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
           <Bot size={17} aria-hidden="true" /><span className="resource-sidebar-copy"><strong>{resource.Name}</strong><small>{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</small><span className={`resource-sidebar-state ${connectionState === 'available' ? 'is-connected' : ''}`}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</span></span><ChevronRight className="resources-provider-caret" size={16} aria-hidden="true" />
         </button>; })}
       </SlidingHighlight>
-      <Button size="sm" variant="secondary" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button>
+      {!mobile && <Button size="sm" variant="secondary" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button>}
     </nav>
     <div className="resources-provider-detail" hidden={mobile && !provider}>
-      {provider ? <ProviderModelsPanel key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === provider.ID)} loading={models.loading && !models.data} onClose={backToProviders} actions={providerActions(provider)} connectionState={status[provider.ID] || provider.State} /> : !query.loading && <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p></div>}
+      {provider ? <ProviderModelsPanel key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === provider.ID)} loading={models.loading && !models.data} onBusyChange={setModelBusy} actions={providerActions(provider)} connectionState={status[provider.ID] || provider.State} /> : !query.loading && <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p></div>}
     </div>
     {mobile && !provider && !providers.length && !query.loading && <p className="resources-provider-empty muted">{t.resources.connectHelp.model}</p>}
   </div>;
   const disconnectResource = useMutation([disconnect]);
-  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }, ...(principal?.User?.Administrator ? [{ id: 'refresh-pricing', label: t.resources.refreshPricing, icon: <RefreshCw size={15} />, disabled: pricingAction.busy, onSelect: refreshPrices }] : [])]} />} />
+  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} leading={mobileDetail ? <IconButton ref={headerBack} label={t.back} disabled={tab === 'model' && modelBusy} onClick={() => tab === 'sandbox' ? navigateSandbox() : navigate('resources')}><ChevronLeft size={18} /></IconButton> : undefined} actions={(tab === 'model' || tab === 'sandbox') && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={tab === 'sandbox' ? [{ id: 'connect-sandbox', label: copy.connect, icon: <Plus size={15} />, onSelect: () => setConnectSandbox(true) }] : [{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }, ...(principal?.User?.Administrator ? [{ id: 'refresh-pricing', label: t.resources.refreshPricing, icon: <RefreshCw size={15} />, disabled: pricingAction.busy, onSelect: refreshPrices }] : [])]} />} />
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
       { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? modelContent : null },
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },
       { value: 'skill', label: 'Skills', icon: <BookOpen size={15} />, content: tab === 'skill' ? <SkillsCatalog /> : null },
-      { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} /> : null },
+      { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} connecting={connectSandbox} onConnectingChange={setConnectSandbox} /> : null },
     ]} />
 
     <ModalPresence>{defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}</ModalPresence>

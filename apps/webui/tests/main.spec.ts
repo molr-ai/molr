@@ -1,4 +1,4 @@
-import { openSandboxDetails, openSandboxList } from './sandbox-navigation';
+import { openSandboxDetails, openSandboxList, openSandboxConnection } from './sandbox-navigation';
 import { chatPanel } from './chat-panel';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { selectPlanRange } from './plan-controls';
@@ -131,7 +131,7 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   for (const label of ['Input price (USD / million tokens)', 'Output price (USD / million tokens)', 'Cached input price (USD / million tokens)']) await modelForm.getByRole('spinbutton', { name: label, exact: true }).fill('0');
   await modelForm.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(modelForm).not.toBeVisible();
-  const providerBack = page.locator('.provider-models-heading').getByRole('button', { name: 'Back', exact: true });
+  const providerBack = page.locator('.resources-header').getByRole('button', { name: 'Back', exact: true });
   if (await providerBack.isVisible()) await providerBack.click();
   await expect(providerCard).toContainText(resourceName);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
@@ -1081,7 +1081,7 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await openSandboxDetails(page);
   await expect(page.getByRole('heading', { name: 'Assistant workspace /work', exact: true })).toBeVisible();
   await openSandboxList(page);
-  await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
+  await openSandboxConnection(page);
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   for (const label of ['Service URL', 'Connection code']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -2656,7 +2656,7 @@ test('sandbox selection persists and connection changes invalidate a successful 
   await openSandboxDetails(page);
   await expect(resourceCategory(page, 'Network')).toHaveAttribute('aria-selected', 'true');
   await openSandboxList(page);
-  await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
+  await openSandboxConnection(page);
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   const save = dialog.getByRole('button', { name: 'Connect sandbox', exact: true });
   await expect(save).toBeDisabled();

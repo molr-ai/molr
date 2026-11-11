@@ -17,6 +17,10 @@ test('provider page slides between models and configuration, restores scroll and
   const resource = await response.json();
   await page.reload();
   const trigger = page.locator('.resources-provider-option').filter({ hasText: name });
+  if (info.project.name === 'mobile') {
+    await expect(page.locator('.resources-provider-nav').getByRole('button', { name: 'Connect provider', exact: true })).toHaveCount(0);
+    expect(await trigger.locator('strong').evaluate(e => getComputedStyle(e).color)).toBe(await trigger.evaluate(e => getComputedStyle(e).color));
+  }
   await trigger.click();
   const drawer = page.locator('.provider-models-panel');
   await expect(drawer).toBeVisible();
@@ -58,7 +62,7 @@ test('provider page slides between models and configuration, restores scroll and
   await expect(drawer.locator('.provider-models-pages')).toHaveCSS('transition-duration', '0s');
   await drawer.getByRole('button', { name: 'Cancel', exact: true }).click();
   if (info.project.name === 'mobile') {
-    await back.click();
+    await page.locator('.resources-header').getByRole('button', { name: 'Back', exact: true }).click();
     await expect(drawer).not.toBeVisible();
     await expect(trigger).toBeFocused();
     await trigger.click();

@@ -11,11 +11,15 @@ test('sandbox uses a sidebar on tablet and list/detail navigation on phones', as
   await expect(page.locator('.sandbox-mobile-switch')).toHaveCount(0);
   if (info.project.name === 'mobile') {
     await expect(detail).toBeHidden();
+    await expect(sidebar.getByRole('button', { name: 'Connect sandbox', exact: true })).toHaveCount(0);
+    expect(await entry.locator('strong').evaluate(e => getComputedStyle(e).color)).toBe(await entry.evaluate(e => getComputedStyle(e).color));
     const workspace = (await page.locator('.sandbox-workspace').boundingBox())!, listPane = (await sidebar.boundingBox())!;
     expect(Math.abs(workspace.y + workspace.height - listPane.y - listPane.height)).toBeLessThanOrEqual(1);
     await entry.click();
     await expect(detail).toBeVisible();
     await expect(sidebar).toBeHidden();
+    await expect(detail.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0);
+    await expect(page.locator('.resources-header').getByRole('button', { name: 'Back', exact: true })).toBeFocused();
     await expect(page).toHaveURL(/sandbox=local/);
     await page.goBack();
     await expect(sidebar).toBeVisible();
@@ -24,7 +28,7 @@ test('sandbox uses a sidebar on tablet and list/detail navigation on phones', as
     await expect(detail).toBeVisible();
     await page.reload();
     await expect(detail).toBeVisible();
-    await detail.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.locator('.resources-header').getByRole('button', { name: 'Back', exact: true }).click();
     await expect(sidebar).toBeVisible();
     await entry.click();
   } else {

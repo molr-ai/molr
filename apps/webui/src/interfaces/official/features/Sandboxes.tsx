@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalPresence, Drawer, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
-import { ChevronLeft, ChevronRight, Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
+import { ChevronRight, Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
 export type { SandboxView } from '@molr/sdk';
@@ -32,10 +32,10 @@ function statusLabel(sandbox: SandboxView, copy: ReturnType<typeof useSandboxCop
   if (sandbox.Local && !sandbox.Info.Enabled) return copy.disabled;
   return isConnected(sandbox) ? sandbox.Local ? copy.ready : copy.connected : copy.offline;
 }
-export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[]; resourceID?: string }) {
+export function Sandboxes({ resources, resourceID = '', connecting, onConnectingChange }: { resources: Resource[]; resourceID?: string; connecting: boolean; onConnectingChange: (open: boolean) => void }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), query = useQuery<SandboxView[]>('/api/sandboxes'), check = useAction();
   const mobile = useBreakpoint('mobile'), compact = useBreakpoint('compact'), { sandboxID, navigateSandbox } = useNavigation();
-  const listTrigger = useRef<HTMLButtonElement | null>(null), backButton = useRef<HTMLButtonElement>(null);
+  const listTrigger = useRef<HTMLButtonElement | null>(null);
   const [preferred, setPreferred] = useSandboxPreference<string>('sandbox', 'local', value => /^[A-Za-z0-9_-]{1,128}$/.test(value));
   const selected = sandboxID || preferred;
   const setSelected = (id: string) => { setPreferred(id); navigateSandbox(id); };
@@ -45,7 +45,7 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   useEffect(() => onMutation(path => {
     if (path.startsWith('/api/sandboxes/') || path.startsWith('/api/resources/') || path.startsWith('/api/grants')) { query.reload(); details.reload(); }
   }), [query.reload, details.reload]);
-  const [connecting, setConnecting] = useState(false), [editing, setEditing] = useState<SandboxView | null>(null), [disconnecting, setDisconnecting] = useState<SandboxView | null>(null), [renamingSandbox, setRenamingSandbox] = useState<SandboxView | null>(null), [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<SandboxView | null>(null), [disconnecting, setDisconnecting] = useState<SandboxView | null>(null), [renamingSandbox, setRenamingSandbox] = useState<SandboxView | null>(null), [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Resource | null>(null), [renaming, setRenaming] = useState<Resource | null>(null), [access, setAccess] = useState<Resource | null>(null);
   const [showDisconnected, setShowDisconnected] = useState(false);
   const [reconnecting, setReconnecting] = useState<Resource | null>(null), [deleting, setDeleting] = useState<Resource | null>(null);
@@ -56,8 +56,7 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const sandbox = query.data?.find(item => item.ID === selected);
   const detailVisible = !!sandbox && (!mobile || !!sandboxID || !!target && kinds.includes(target.Kind as SandboxKind));
   useEffect(() => {
-    if (mobile && detailVisible) backButton.current?.focus({ preventScroll: true });
-    else if (mobile) listTrigger.current?.focus({ preventScroll: true });
+    if (mobile && !detailVisible) listTrigger.current?.focus({ preventScroll: true });
   }, [mobile, detailVisible, selected]);
   const workspace = resources.find(resource => (resource.SandboxID || 'local') === selected && resource.Provider === 'managed-workspace');
   const rows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind && resource.Provider !== 'managed-workspace' && resource.State !== 'disconnected');
@@ -102,10 +101,10 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
         <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={mobile} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item resource-sidebar-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={event => { listTrigger.current = event.currentTarget; setSelected(item.ID); }}>
           <Server size={17} /><span className="resource-sidebar-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`resource-sidebar-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>{mobile && <ChevronRight className="sandbox-item-caret" size={16} aria-hidden="true" />}
         </button></li>)}</SlidingHighlight>
-        <Button className="sandbox-connect" variant="secondary" size="sm" onClick={() => setConnecting(true)}><Plus size={15} />{copy.connect}</Button>
+        {!mobile && <Button className="sandbox-connect" variant="secondary" size="sm" onClick={() => onConnectingChange(true)}><Plus size={15} />{copy.connect}</Button>}
       </aside>
       {sandbox && <div className="sandbox-detail" hidden={!detailVisible}>
-        <div className="sandbox-overview"><header className="sandbox-heading">{mobile && <IconButton ref={backButton} label={t.back} onClick={() => navigateSandbox()}><ChevronLeft size={18} /></IconButton>}<div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
+        <div className="sandbox-overview"><header className="sandbox-heading"><div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
           <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} loading={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
         </header>
         <div className="sandbox-overview-meta"><div className="sandbox-capabilities">
@@ -133,7 +132,8 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
     </Drawer>}</ModalPresence>
     <ModalPresence>{reconnecting && <Confirm title={copy.reconnectResource} description={copy.reconnectResourceHelp} onClose={() => setReconnecting(null)} onConfirm={() => reconnectResource('/api/resources/reconnect', { ID: reconnecting.ID }, reconnecting.Version)} />}</ModalPresence>
     <ModalPresence>{deleting && <Confirm danger title={copy.deleteResource} description={copy.deleteResourceHelp} onClose={() => setDeleting(null)} onConfirm={() => deleteResource('/api/resources/delete', { ID: deleting.ID }, deleting.Version)} />}</ModalPresence>
-    <ModalPresence>{connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}</ModalPresence><ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
+    <ModalPresence>{connecting && <SandboxConnection onClose={() => onConnectingChange(false)} onConnected={setSelected} />}</ModalPresence>
+    <ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
     <ModalPresence>{adding && sandbox && kind !== 'full_access' && <AddSandboxResource sandbox={sandbox} kind={kind} onClose={() => setAdding(false)} onConnected={resource => { setAdding(false); setAccess(resource); }} />}</ModalPresence>
     <ModalPresence>{renamingSandbox && <RenameSandbox sandbox={renamingSandbox} onClose={() => setRenamingSandbox(null)} />}</ModalPresence>
     <ModalPresence>{disconnecting && <Confirm danger title={copy.disconnect} description={copy.disconnectHelp} onClose={() => setDisconnecting(null)} onConfirm={() => disconnectSandbox('/api/sandboxes/disconnect', { ID: disconnecting.ID }, disconnecting.Version)} />}</ModalPresence>
