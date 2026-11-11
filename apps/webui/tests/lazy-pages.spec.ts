@@ -127,9 +127,12 @@ test('restoring after an admin page download failure retains the chat draft', as
   await page.evaluate(id => { location.hash = `#/assistants/${id}`; }, assistant.ID);
   const composer = page.getByRole('textbox', { name: 'Message your assistant', exact: true });
   await composer.fill('Keep this unsent draft through recovery.');
-  await page.route('**/assets/AdminSettings-*.js', route => route.abort('failed'), { times: 1 });
+  // Keep the server failure active through both module preloading and import.
+  // Restore it only after the error UI is visible, before the user retries.
+  await page.route('**/assets/AdminSettings-*.js', route => route.fulfill({ status: 503, contentType: 'text/plain', body: 'Temporarily unavailable' }));
   await page.evaluate(() => { location.hash = '#/settings/users'; });
   await expect(page.getByRole('heading', { name: 'This theme could not load', exact: true })).toBeVisible();
+  await page.unroute('**/assets/AdminSettings-*.js');
   await page.getByRole('button', { name: 'Restore default theme', exact: true }).click();
   await expect(page.locator('.settings-workspace')).toBeVisible();
   await page.evaluate(id => { location.hash = `#/assistants/${id}`; }, assistant.ID);
@@ -187,7 +190,7 @@ test('search opens task details across a delayed assistant page and the link sur
   const provider = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
   const model = (await (await page.request.get('/api/models')).json()).find((item: { ResourceID: string }) => item.ResourceID === provider.ID);
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
-  const goal = `Search lazy task ${info.project.name}`;
+  const goal = `Search lazy task ${info.project.name}-${info.repeatEachIndex}`;
   const task = await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: goal });
   await expect(page.locator('.plans-workspace')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event('molr:search')));
