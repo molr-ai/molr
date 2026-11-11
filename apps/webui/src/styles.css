@@ -141,7 +141,6 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .provider-connect-dialog.ui-dialog--lg:not(.ui-drawer) { width: min(840px, calc(100% - 32px)); }
 .provider-connect-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
 .provider-connect-providers { position: sticky; top: 0; min-width: 0; }
-.provider-connect-label { margin: 0 0 12px; color: var(--color-text-muted); font-size: var(--text-xs); }
 .provider-connect-filters { display: grid; gap: 10px; margin-bottom: 12px; }
 .provider-connect-filters .radio-group__options { width: 100%; }
 .provider-connect-filters .radio-option { flex: 1; justify-content: center; }

@@ -130,11 +130,10 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     }} />}
     <div className={`provider-connect-layout${initial ? ' provider-connect-layout--editing' : ''}`}>
       {!initial && <div className="provider-connect-providers" role="group" aria-label={t.resources.providerList}>
-        <p className="provider-connect-label">{t.resources.providerList}</p>
         <div className="provider-connect-filters">
+          <SearchField label={t.resources.searchProviders} placeholder={t.resources.searchProviders} hideLabel value={search} onValueChange={setSearch} disabled={busy} />
           <SegmentedControl<ProviderFilter> label={t.resources.providerType} hideLabel value={providerFilter} onValueChange={setProviderFilter} disabled={busy}
             options={(['all', 'cloud', 'local'] as const).map(value => ({ value, label: t.resources.providerFilters[value] }))} />
-          <SearchField label={t.resources.searchProviders} placeholder={t.resources.searchProviders} hideLabel value={search} onValueChange={setSearch} disabled={busy} />
         </div>
         <div className="provider-connect-provider-options">{visibleProviders.map(item => {
           const Icon = item.icon;
