@@ -40,17 +40,24 @@ test('mobile tabs hide scrollbars, reveal adjacent choices, and pin first and la
   const tabs = await settingsTabs(page);
   const selected = tabs.locator('[aria-selected="true"]');
   await selected.focus();
-  await selected.press('Home');
+  await page.keyboard.press('Home');
+  await expect(selected).toHaveText('Interface');
   await expect.poll(async () => (await metrics(tabs)).scroll).toBe(0);
   await expect(tabs).toHaveCSS('scrollbar-width', 'none');
-  await selected.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(selected).toHaveText('Memory');
   await expect.poll(async () => (await metrics(tabs)).scroll).toBe(0);
-  await selected.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(selected).toHaveText('Preferences');
   await expect.poll(async () => (await metrics(tabs)).visible).toBe(true);
   await expect.poll(async () => (await metrics(tabs)).next).toBeCloseTo(12, 0);
-  await selected.press('End');
+  await page.keyboard.press('End');
+  await expect(selected).toHaveText('Data');
   await expect.poll(async () => { const m = await metrics(tabs); return Math.abs(m.scroll - m.max); }).toBeLessThan(1);
-  for (let i = 0; i < 4; i++) await selected.press('ArrowLeft');
+  for (const label of ['Former assistants', 'Connections', 'Usage', 'Preferences']) {
+    await page.keyboard.press('ArrowLeft');
+    await expect(selected).toHaveText(label);
+  }
   await expect(selected).toHaveText('Preferences');
   await expect.poll(async () => (await metrics(tabs)).visible).toBe(true);
   await expect.poll(async () => (await metrics(tabs)).previous).toBeCloseTo(12, 0);
