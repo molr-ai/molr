@@ -59,8 +59,8 @@
 /* Sandbox master/detail layout. */
 .sandbox-workspace { display: flex; flex-direction: column; gap: 16px; }
 .sandbox-layout { display: grid; grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr); align-items: start; gap: 0; }
-.sandbox-sidebar { position: sticky; top: 0; min-width: 0; padding: 10px 12px; }
-.sandbox-sidebar::after { content: ''; position: absolute; right: 0; top: 10px; bottom: 10px; width: 1px; background: var(--color-border); pointer-events: none; }
+.sandbox-sidebar { position: sticky; top: 0; min-width: 0; padding: 20px 24px; }
+.sandbox-sidebar::after { content: ''; position: absolute; right: 0; top: 20px; bottom: 20px; width: 1px; background: var(--color-border); pointer-events: none; }
 .sandbox-section-heading, .sandbox-access-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sandbox-list { display: flex; flex-direction: column; gap: 1px; list-style: none; margin: 0; padding: 0; }
 .sandbox-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: start; padding: 10px 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: inherit; cursor: pointer; }
@@ -210,8 +210,8 @@
 .sandbox-disconnected-resources { container: sandbox-detail / inline-size; }
 
 .resources-model-layout { display: flex; flex: 1; min-height: 0; min-width: 0; }
-.resources-provider-nav { position: relative; display: flex; flex-direction: column; gap: 16px; width: var(--workspace-sidebar-width); flex-shrink: 0; padding: 10px 12px; min-height: 0; }
-.resources-provider-nav::after { content: ''; position: absolute; right: 0; top: 10px; bottom: 10px; width: 1px; background: var(--color-border); pointer-events: none; }
+.resources-provider-nav { position: relative; display: flex; flex-direction: column; gap: 16px; width: var(--workspace-sidebar-width); flex-shrink: 0; padding: 20px 24px; min-height: 0; }
+.resources-provider-nav::after { content: ''; position: absolute; right: 0; top: 20px; bottom: 20px; width: 1px; background: var(--color-border); pointer-events: none; }
 .resources-provider-options { display: grid; align-content: start; gap: 1px; flex: 1; overflow-y: auto; min-height: 0; }
 .resources-provider-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
 .resources-provider-option:hover { background: color-mix(in srgb, var(--color-neutral-bg) 55%, transparent); }
