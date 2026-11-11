@@ -60,9 +60,11 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const modelContent = <div className="resources-model-layout">
     <nav className="resources-provider-nav" aria-label={t.resources.providerList} hidden={mobile && !!provider}>
       <SlidingHighlight className="resources-provider-options" value={provider?.ID} disabled={mobile}>
-        {query.loading && !query.data ? <Loading /> : providers.map(resource => <button key={resource.ID} type="button" className="resources-provider-option" data-sliding-item={resource.ID} aria-label={resource.Name} aria-current={provider?.ID === resource.ID ? 'page' : undefined} onClick={event => { providerTrigger.current = event.currentTarget; navigate('resources', resource.ID); }}>
-          <Bot size={18} aria-hidden="true" /><span><strong>{resource.Name}</strong><small>{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</small></span><ChevronRight size={16} aria-hidden="true" />
-        </button>)}
+        {query.loading && !query.data ? <Loading /> : providers.map(resource => {
+          const connectionState = status[resource.ID] || resource.State;
+          return <button key={resource.ID} type="button" className="resources-provider-option resource-sidebar-item" data-sliding-item={resource.ID} aria-label={resource.Name} aria-current={provider?.ID === resource.ID ? 'page' : undefined} onClick={event => { providerTrigger.current = event.currentTarget; navigate('resources', resource.ID); }}>
+          <Bot size={17} aria-hidden="true" /><span className="resource-sidebar-copy"><strong>{resource.Name}</strong><small>{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</small><span className={`resource-sidebar-state ${connectionState === 'available' ? 'is-connected' : ''}`}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</span></span><ChevronRight className="resources-provider-caret" size={16} aria-hidden="true" />
+        </button>; })}
       </SlidingHighlight>
       <Button size="sm" variant="secondary" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button>
     </nav>

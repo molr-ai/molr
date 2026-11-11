@@ -48,11 +48,12 @@ export function ProviderModelsPanel({ resource, models, loading, actions, connec
   return <section className="provider-models-panel" aria-label={title}>
     <header className="provider-models-heading">
       {(detail || mobile) && <IconButton ref={backRef} label={t.back} disabled={action.busy} onClick={detail ? back : onClose}><ChevronLeft size={18} /></IconButton>}
-      <h2>{title}</h2>{!detail && <><Badge tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge><span className="provider-models-actions">{actions}</span></>}
+      <div className="provider-models-identity"><div className="provider-models-title"><h2>{title}</h2>{!detail && <Badge tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge>}</div>
+        {!detail && <p className="provider-models-description">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p>}
+      </div>{!detail && <span className="provider-models-actions">{actions}</span>}
     </header>
     <div className="provider-models-pages" data-detail={detail}>
       <div ref={listRef} className="provider-models-page" inert={detail} aria-hidden={detail}>
-        <p className="provider-models-description muted">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p>
         <div className="provider-models-toolbar"><h3>{t.resources.providerModels}</h3><Button ref={addRef} size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={event => configure(undefined, event.currentTarget)}><Plus size={14} />{t.resources.addModel}</Button></div>
         {loading ? <Loading /> : models.length ? <ul className="resource-models-list">{models.map(model => <li key={model.ID}>
           <div className="resource-model-copy"><div className="resource-model-name"><strong><button type="button" className="resource-model-open row-open" disabled={resource.State !== 'available'} onClick={event => configure(model, event.currentTarget)}>{model.Name}</button></strong>{!model.Pricing && <Badge tone="warning">{t.resources.pricingUnknown}</Badge>}</div>
