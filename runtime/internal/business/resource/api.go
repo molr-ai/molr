@@ -30,6 +30,7 @@ const (
 
 // Resource is safe for authorized UI/Agent views; it has no secret or raw binding.
 type Resource struct {
+	Preset         string  `json:",omitempty"`
 	Reason         string  `json:",omitempty"`
 	Authentication string  `json:",omitempty"`
 	SandboxID      core.ID `json:",omitempty"`

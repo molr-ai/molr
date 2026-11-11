@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "07198f96ef06be6e684226a18bcb773e33c8e2b0c02215678e2281d3e7dd9df6",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "071c08836287d2ee3e634da824f23eb64e302f007349cb7ec26b9b155b672499",
+    "THIRD_PARTY_NOTICES.md": "f8b42d09e2d229b115e41e0d7ee3aa09a2ced63e1179f2ebba719f6d4cbd4ce8",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -27,7 +27,8 @@
     "apps/desktop/scripts/package.mjs": "283c13cd38b4ed681f5895d6dd1db91870e86377fb1935f9ce3e3ee6cebf5fd0",
     "apps/desktop/scripts/build-windows-runtime.mjs": "437a4a45ad2fa2ab3caf2ad9c2d7b41dcb91dad6ee2ed62a48d815b2899de62d",
     "apps/desktop/scripts/notarization.mjs": "2c2add1c07985be03791b386d9f601760364d8c93ab88934a6fef3855df4ab86",
-    "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx": "11ed9b89190dfb3f3c2b8954804d0d01a29df016a02a0cbd5f747fadbb7a2475"
+    "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx": "11ed9b89190dfb3f3c2b8954804d0d01a29df016a02a0cbd5f747fadbb7a2475",
+    "apps/webui/src/interfaces/official/features/ProviderIcon.tsx": "cff63ee5d3e616ff004ffa2aa78024f2c3dbbbc26c8b31ddfbfbd905d6e389c7"
   },
   "npm": [
     {
@@ -12209,6 +12210,14 @@
         "apps/desktop/scripts/package.mjs"
       ],
       "scope": "Reviewed the desktop package file-list addition for Molr-authored runtime-version.js. This includes the local service version helper without adding third-party code or assets. Existing Electron/Chromium license files, Molr LICENSE and THIRD_PARTY_NOTICES.md remain explicitly distributed; dependency versions and notice text are unchanged."
+    },
+    {
+      "reviewedAt": "2026-11-11",
+      "files": [
+        "THIRD_PARTY_NOTICES.md",
+        "apps/webui/src/interfaces/official/features/ProviderIcon.tsx"
+      ],
+      "scope": "Reviewed 15 monochrome model provider icons from Lobe Icons at ea434b96e75813517b377825e01c0df61dee8836 (MIT, copyright 2023 LobeHub). Original path geometry retained with currentColor and shared dimensions. Full source attribution and license included in distribution notices. No npm dependencies added."
     }
   ]
 }

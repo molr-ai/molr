@@ -10,6 +10,8 @@ export type SelectOption<Value extends string = string> = {
   value: Value;
   label: string;
   description?: string;
+  /** Additional search terms that are not displayed in the option. */
+  keywords?: string;
   icon?: ReactNode;
   disabled?: boolean;
   group?: { value: string; label: string };
@@ -76,7 +78,7 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
   const visibleIndices = useMemo(() => {
     const terms = searchable ? query.trim().toLowerCase().split(/\s+/).filter(Boolean) : [];
     return options.flatMap((option, index) => {
-      const text = `${option.label} ${option.value} ${option.description ?? ''} ${option.group?.label ?? ''}`.toLowerCase();
+      const text = `${option.label} ${option.value} ${option.description ?? ''} ${option.group?.label ?? ''} ${option.keywords ?? ''}`.toLowerCase();
       return terms.every(term => text.includes(term)) ? [index] : [];
     });
   }, [options, query, searchable]);

@@ -2,6 +2,8 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"molr.ai/runtime/internal/core"
@@ -47,4 +49,44 @@ func TestProviderConnectionOwnerOnlyAndVersionedChanges(t *testing.T) {
 		_, err = s.SaveProvider(t.Context(), actor, req)
 		wantDenied(t, err)
 	}
+}
+
+func TestProviderPresetDescriptors(t *testing.T) {
+	db := fixtureDB(t)
+	s := NewService(db, Options{Authorizer: fixtureAuthorizer{}, Providers: map[string]Provider{"openai-compatible": {
+		Kind: Model, Validate: func(context.Context, Binding) ([]string, error) { return []string{"read", "execute"}, nil },
+	}}})
+	req := SaveProviderRequest{Name: "Renamed provider", PricingProvider: "deepseek", Endpoint: "https://model.example.test/v1/chat/completions", Mutation: mutation("brand", 0)}
+	row, err := s.SaveProvider(t.Context(), owner(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, preset := range []string{"deepseek", "custom"} {
+		if preset == "custom" {
+			req.ID, req.Name, req.PricingProvider, req.Mutation = row.ID, "OpenAI", preset, mutation("custom", row.Version)
+			row, err = s.SaveProvider(t.Context(), owner(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		got, err := s.Get(t.Context(), owner(), row.ID)
+		if err != nil || got.Preset != preset {
+			t.Fatalf("preset on detail: %+v %v", got, err)
+		}
+		page, err := s.List(t.Context(), owner(), Query{Kind: Model})
+		if err != nil || len(page.Items) != 1 || page.Items[0].Preset != preset {
+			t.Fatalf("preset on list: %+v %v", page, err)
+		}
+		encoded, err := json.Marshal(page.Items[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(encoded), req.Endpoint) || strings.Contains(string(encoded), "CredentialID") {
+			t.Fatal("preset descriptor exposes binding")
+		}
+	}
+	_, err = s.Get(t.Context(), otherOwner(), row.ID)
+	wantDenied(t, err)
+	_, err = s.List(t.Context(), otherOwner(), Query{Kind: Model})
+	wantDenied(t, err)
 }

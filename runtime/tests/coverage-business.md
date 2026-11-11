@@ -35,8 +35,8 @@
 | `internal/business/memory` | `Service.Update` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation`, `TestTDDPrivateAndSharedMemoryPolicy` |
 | `internal/business/memory` | `Service.Delete` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation`, `TestTDDPrivateAndSharedMemoryPolicy` |
 | `internal/business/resource` | `Service.Connect` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors`, `TestResourceReceiptRechecksAuthorizationAndKeepsAuditAtomic` |
-| `internal/business/resource` | `Service.Get` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
-| `internal/business/resource` | `Service.List` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
+| `internal/business/resource` | `Service.Get` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors`, `TestProviderPresetDescriptors` |
+| `internal/business/resource` | `Service.List` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors`, `TestProviderPresetDescriptors` |
 | `internal/business/resource` | `Service.Update` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
 | `internal/business/resource` | `Service.Disconnect` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
 | `internal/business/resource` | `Service.Check` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |

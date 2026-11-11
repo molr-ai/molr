@@ -1,3 +1,4 @@
+import { selectProvider } from './provider-selection';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -18,7 +19,7 @@ async function openProvider(page: Page) {
   await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
-  await dialog.getByRole('button', { name: 'Custom service', exact: true }).click();
+  await selectProvider(dialog, 'Custom service');
   const endpoint = dialog.getByLabel('Service URL', { exact: true }); await endpoint.fill(original);
   await expect(dialog.locator('.local-discovery').getByRole('button', { name: 'Use', exact: true })).toBeEnabled();
   return { dialog, endpoint };

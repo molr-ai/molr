@@ -1,3 +1,4 @@
+import { selectProvider } from './provider-selection';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? 5193}`;
@@ -31,7 +32,7 @@ test('cloud presets test, save, discover and reopen for editing', async ({ page 
     await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
-    await dialog.getByRole('button', { name: label, exact: true }).click();
+    await selectProvider(dialog, label);
     await dialog.getByLabel('API key', { exact: true }).fill('test-provider-secret');
     await dialog.getByText('More configuration', { exact: true }).click();
     const name = `${label} ${Date.now()}`;

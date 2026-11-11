@@ -2,12 +2,12 @@ import { mutationKey } from '@molr/sdk';
 import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { useId, useState } from 'react';
-import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast, useModalSnapshot } from '@molr/ui';
-import { Cloud, Monitor, Settings2 } from 'lucide-react';
+import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast, useModalSnapshot, useBreakpoint } from '@molr/ui';
+import { ProviderIcon } from './ProviderIcon';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { api, APIError } from '@molr/sdk';
 import type { Resource } from '@molr/sdk';
-import { useCopy, useQuery } from '../../../state';
+import { useCopy, useQuery, useSession } from '../../../state';
 import { ChatGPTConnection, type ChatGPTConnectionInfo } from './ChatGPTConnection';
 import { LocalProviderDiscovery } from './LocalProviderDiscovery';
 import { Loading, useAction } from '../components/common';
@@ -15,24 +15,24 @@ import { Loading, useAction } from '../components/common';
 // Authentication methods are explicit provider capabilities.
 type AuthenticationMethod = 'api-key' | 'none' | 'oauth';
 const providers = [
-  { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', icon: Cloud, methods: ['api-key', 'oauth'] },
-  { id: 'anthropic', name: 'Anthropic', category: 'cloud', aliases: 'Claude', endpoint: 'https://api.anthropic.com/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'gemini', name: 'Google Gemini', category: 'cloud', aliases: 'Google AI Studio 谷歌', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', icon: Cloud, methods: ['api-key'] },
-  { id: 'minimax', name: 'MiniMax', category: 'cloud', aliases: '稀宇', endpoint: 'https://api.minimax.cn/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'volcengine', name: 'Volcengine', category: 'cloud', aliases: '火山方舟 火山引擎 豆包 Doubao Ark ByteDance', endpoint: 'https://ark.cn-beijing.volces.com/api/v3', icon: Cloud, methods: ['api-key'] },
-  { id: 'siliconflow', name: 'SiliconFlow', category: 'cloud', aliases: '硅基流动', endpoint: 'https://api.siliconflow.cn/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'zai', name: 'Z.AI', category: 'cloud', aliases: 'ZAI GLM', endpoint: 'https://api.z.ai/api/paas/v4', icon: Cloud, methods: ['api-key'] },
-  { id: 'lmstudio', name: 'LM Studio', category: 'local', aliases: 'LMStudio', endpoint: 'http://127.0.0.1:1234/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'openrouter', name: 'OpenRouter', category: 'cloud', aliases: 'Open Router', endpoint: 'https://openrouter.ai/api/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'deepseek', name: 'DeepSeek', category: 'cloud', aliases: '深度求索', endpoint: 'https://api.deepseek.com/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'bailian', name: 'Aliyun Bailian', category: 'cloud', aliases: '百炼 阿里云 通义千问 Alibaba Cloud Bailian DashScope Qwen', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'zhipu', name: 'Zhipu', category: 'cloud', aliases: '智谱 智谱清言 Zhipu BigModel GLM', endpoint: 'https://open.bigmodel.cn/api/paas/v4', icon: Cloud, methods: ['api-key'] },
-  { id: 'moonshot', name: 'Moonshot AI', category: 'cloud', aliases: '月之暗面 Moonshot Kimi', endpoint: 'https://api.moonshot.cn/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'ollama', name: 'Ollama', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:11434/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'llamacpp', name: 'llama.cpp', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8080/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'vllm', name: 'vLLM', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8000/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'sglang', name: 'SGLang', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:30000/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'custom', name: 'Custom service', category: 'any', aliases: '自定义 Custom', endpoint: '', icon: Settings2, methods: ['none', 'api-key'] },
+  { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', methods: ['api-key', 'oauth'] },
+  { id: 'anthropic', name: 'Anthropic', category: 'cloud', aliases: 'Claude', endpoint: 'https://api.anthropic.com/v1', methods: ['api-key'] },
+  { id: 'gemini', name: 'Google Gemini', category: 'cloud', aliases: 'Google AI Studio 谷歌', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', methods: ['api-key'] },
+  { id: 'minimax', name: 'MiniMax', category: 'cloud', aliases: '稀宇', endpoint: 'https://api.minimax.cn/v1', methods: ['api-key'] },
+  { id: 'volcengine', name: 'Volcengine', category: 'cloud', aliases: '火山方舟 火山引擎 豆包 Doubao Ark ByteDance', endpoint: 'https://ark.cn-beijing.volces.com/api/v3', methods: ['api-key'] },
+  { id: 'siliconflow', name: 'SiliconFlow', category: 'cloud', aliases: '硅基流动', endpoint: 'https://api.siliconflow.cn/v1', methods: ['api-key'] },
+  { id: 'zai', name: 'Z.AI', category: 'cloud', aliases: 'ZAI GLM', endpoint: 'https://api.z.ai/api/paas/v4', methods: ['api-key'] },
+  { id: 'lmstudio', name: 'LM Studio', category: 'local', aliases: 'LMStudio', endpoint: 'http://127.0.0.1:1234/v1', methods: ['none', 'api-key'] },
+  { id: 'openrouter', name: 'OpenRouter', category: 'cloud', aliases: 'Open Router', endpoint: 'https://openrouter.ai/api/v1', methods: ['api-key'] },
+  { id: 'deepseek', name: 'DeepSeek', category: 'cloud', aliases: '深度求索', endpoint: 'https://api.deepseek.com/v1', methods: ['api-key'] },
+  { id: 'bailian', name: 'Aliyun Bailian', category: 'cloud', aliases: '百炼 阿里云 通义千问 Alibaba Cloud Bailian DashScope Qwen', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1', methods: ['api-key'] },
+  { id: 'zhipu', name: 'Zhipu', category: 'cloud', aliases: '智谱 智谱清言 Zhipu BigModel GLM', endpoint: 'https://open.bigmodel.cn/api/paas/v4', methods: ['api-key'] },
+  { id: 'moonshot', name: 'Moonshot AI', category: 'cloud', aliases: '月之暗面 Moonshot Kimi', endpoint: 'https://api.moonshot.cn/v1', methods: ['api-key'] },
+  { id: 'ollama', name: 'Ollama', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:11434/v1', methods: ['none', 'api-key'] },
+  { id: 'llamacpp', name: 'llama.cpp', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8080/v1', methods: ['none', 'api-key'] },
+  { id: 'vllm', name: 'vLLM', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8000/v1', methods: ['none', 'api-key'] },
+  { id: 'sglang', name: 'SGLang', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:30000/v1', methods: ['none', 'api-key'] },
+  { id: 'custom', name: 'Custom service', category: 'any', aliases: '自定义 Custom', endpoint: '', methods: ['none', 'api-key'] },
 ] as const;
 type ProviderFilter = 'all' | 'cloud' | 'local';
 type ProviderID = typeof providers[number]['id'];
@@ -56,6 +56,7 @@ export function ProviderConnectionDialog({ inline, resourceID, onConnected, onCl
 }
 
 function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 'resourceID'> & { initial?: Connection }) {
+  const mobile = useBreakpoint('mobile');
   const { t } = useCopy(), action = useAction(), testAction = useAction(), { toast } = useToast();
   const verification = useReauthentication();
   const [tested, setTested] = useState<{ ModelCount: number } | null>(null);
@@ -74,10 +75,11 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   const providerName = nameOf(selected);
   const query = search.trim().toLocaleLowerCase();
   // Custom endpoints can connect either a cloud service or a local server.
-  const visibleProviders = providers.filter(item => (providerFilter === 'all' || item.category === providerFilter || item.category === 'any')
-    && `${nameOf(item)} ${item.id} ${item.aliases}`.toLocaleLowerCase().includes(query))
-    .sort((a, b) => Number(a.id === 'custom') - Number(b.id === 'custom')
-      || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  const orderedProviders = [...providers].sort((a, b) => Number(a.id === 'custom') - Number(b.id === 'custom')
+    || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  const visibleProviders = orderedProviders.filter(item => (providerFilter === 'all' || item.category === providerFilter || item.category === 'any')
+    && `${nameOf(item)} ${item.id} ${item.aliases}`.toLocaleLowerCase().includes(query));
+  function selectProvider(id: ProviderID) { setProvider(id); setTested(null); testAction.reset(); action.reset(); }
   const storedKey = !!initial?.CredentialID && !draft.replaceKey;
   function update(patch: Partial<Draft>) {
     setTested(null); testAction.reset(); action.reset();
@@ -122,6 +124,7 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   const endpointField = <TextField label={t.resources.endpoint} type="url" value={draft.endpoint} onChange={event => update({ endpoint: event.target.value })} required={provider === 'custom' || !!initial} placeholder="https://api.example.com/v1" />;
   const footer = draft.authentication === 'oauth' ? null : <><Button variant="secondary" type="submit" form={formID} value="test" loading={testAction.busy} disabled={action.busy}>{t.resources.testConnection}</Button><Button type="submit" form={formID} loading={action.busy} disabled={testAction.busy}>{initial ? t.save : t.resources.connectActions.model}</Button></>;
   const content = <>
+    {selected.category !== 'local' && <ProviderPrivacyNotice />}
     {!initial && <LocalProviderDiscovery disabled={busy} onSelect={item => {
       if (item.ResourceID) { void api.get<Resource>(`/api/resources/${item.ResourceID}`).then(onConnected).catch(() => {}); return; }
       const id = item.Preset as ProviderID;
@@ -130,23 +133,24 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     }} />}
     <div className={`provider-connect-layout${initial ? ' provider-connect-layout--editing' : ''}`}>
       {!initial && <div className="provider-connect-providers" role="group" aria-label={t.resources.providerList}>
+        {mobile ? <Select<ProviderID> label={t.resources.providerList} hideLabel value={provider} onValueChange={selectProvider} disabled={busy} searchable searchPlaceholder={t.resources.searchProviders}
+          options={orderedProviders.map(item => { return { value: item.id, label: nameOf(item), keywords: item.aliases, icon: <ProviderIcon provider={item.id} />, ...(item.category === 'any' ? {} : { group: { value: item.category, label: t.resources.providerFilters[item.category] } }) }; })} /> : <>
         <div className="provider-connect-filters">
           <SegmentedControl<ProviderFilter> label={t.resources.providerType} hideLabel value={providerFilter} onValueChange={setProviderFilter} disabled={busy}
             options={(['all', 'cloud', 'local'] as const).map(value => ({ value, label: t.resources.providerFilters[value] }))} />
           <SearchField label={t.resources.searchProviders} placeholder={t.resources.searchProviders} hideLabel value={search} onValueChange={setSearch} disabled={busy} />
         </div>
         <div className="provider-connect-provider-options">{visibleProviders.map(item => {
-          const Icon = item.icon;
           return <button type="button" className="provider-connect-provider" key={item.id} disabled={busy} aria-pressed={provider === item.id}
-            onClick={() => { setProvider(item.id); setTested(null); testAction.reset(); action.reset(); }}><Icon size={18} aria-hidden="true" /><span>{nameOf(item)}</span></button>;
+            onClick={() => selectProvider(item.id)}><ProviderIcon provider={item.id} /><span>{nameOf(item)}</span></button>;
         })}</div>
         {visibleProviders.length === 0 && <p className="provider-connect-empty muted" role="status">{t.resources.noMatchingProviders}</p>}
+        </>}
       </div>}
       <form id={formID} className="provider-connect-form" aria-label={t.resources.providerConfiguration} onSubmit={event => { event.preventDefault(); if (draft.authentication === 'oauth') return;
         if (((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === 'test') void testAction.run(testConnection, undefined, false);
         else void action.run(submit, onClose, false); }}>
         <header><h3>{initial ? initial.Resource.Name : providerName}</h3><p className="muted">{selected.category === 'local' ? t.resources.localProviderHelp.replace('{provider}', providerName) : t.resources.modelProviderHelp}</p>
-          {selected.category !== 'local' && <Alert tone="warning" title={t.resources.privacyTitle}>{t.resources.providerPrivacy}</Alert>}
         </header>
         <fieldset disabled={busy} className="provider-connect-fields">
           {initial && draft.authentication !== 'oauth' && <TextField label={t.name} value={draft.name} onChange={event => update({ name: event.target.value })} required maxLength={256} />}
@@ -168,4 +172,19 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     </div>
   </>;
   return <>{inline ? <section className="setup-provider">{content}<div className="setup-actions">{footer}</div></section> : <Dialog open title={initial ? t.resources.editProvider : t.resources.connectActions.model} size={initial ? 'md' : 'lg'} className="provider-connect-dialog" dismissible={!busy} onOpenChange={open => { if (!open && !busy) onClose(); }} footer={<><Button variant="secondary" disabled={busy} onClick={onClose}>{t.cancel}</Button>{footer}</>}>{content}</Dialog>}{verification.dialog}</>;
+}
+
+const dismissedPrivacyNotices = new Set<string>();
+function ProviderPrivacyNotice() {
+  const { t } = useCopy(), { principal } = useSession();
+  const key = `molr-provider-privacy:${principal?.OwnerID ?? 'anonymous'}`;
+  const [dismissed, setDismissed] = useState(() => {
+    try { return dismissedPrivacyNotices.has(key) || localStorage.getItem(key) === 'dismissed'; }
+    catch { return dismissedPrivacyNotices.has(key); }
+  });
+  if (dismissed) return null;
+  return <Alert className="provider-privacy-notice" tone="warning" title={t.resources.privacyTitle} onDismiss={() => {
+    dismissedPrivacyNotices.add(key); setDismissed(true);
+    try { localStorage.setItem(key, 'dismissed'); } catch { /* Keep dismissal for this page session when storage is unavailable. */ }
+  }}>{t.resources.providerPrivacy}</Alert>;
 }

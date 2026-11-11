@@ -379,6 +379,8 @@ Plugin Display: `Settings.PluginsVisible` is an account-level boolean preference
 
 ## Models and Initial Configuration
 
+Model resource descriptors from `GET /api/resources` and `GET /api/resources/{id}` may include `Preset`, the configured provider preset used for brand identity. It is omitted when unset and contains no endpoint or credential information. Resource names must not be used to infer brands.
+
 ### First Use and Local Provider Discovery
 
 - `GET /api/setup`: Admin reads `{ Required, AssistantID }`. Only accounts initialized with local `bootstrap` have a pending status; regular `init` and existing accounts are not forced into onboarding.

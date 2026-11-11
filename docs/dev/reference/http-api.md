@@ -379,6 +379,8 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 
 ## 模型与首次配置
 
+`GET /api/resources` 与 `GET /api/resources/{id}` 的模型资源描述可包含 `Preset`，对应连接配置中的提供商预设，用于品牌标识；未设置时省略。该字段不包含端点或凭据，不能根据资源名称推断品牌。
+
 ### 首次使用与本机 Provider 发现
 
 - `GET /api/setup`：管理员读取 `{ Required, AssistantID }`。只有本机 `bootstrap` 初始化的账号有待完成状态，普通 `init` 和已有账号不被强制引导。

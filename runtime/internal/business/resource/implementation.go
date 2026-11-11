@@ -340,7 +340,17 @@ func (s *service) Get(ctx context.Context, p core.Principal, id core.ID) (Resour
 	err := s.read(ctx, p, id, policy.Read, false, func(ctx context.Context) error {
 		var err error
 		result, err = s.repo.Get(ctx, p.OwnerID, id)
-		return err
+		if err != nil {
+			return err
+		}
+		if result.Kind == Model {
+			binding, err := s.repo.Binding(ctx, p.OwnerID, id)
+			if err != nil {
+				return err
+			}
+			result.Preset = binding.PricingProvider
+		}
+		return nil
 	})
 	return result, err
 }
@@ -361,6 +371,13 @@ func (s *service) List(ctx context.Context, p core.Principal, q Query) (core.Pag
 						continue
 					}
 					return err
+				}
+				if item.Kind == Model {
+					binding, err := s.repo.Binding(ctx, p.OwnerID, item.ID)
+					if err != nil {
+						return err
+					}
+					item.Preset = binding.PricingProvider
 				}
 				authorized = append(authorized, item)
 			}

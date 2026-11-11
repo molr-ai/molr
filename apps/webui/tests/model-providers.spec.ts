@@ -1,3 +1,4 @@
+import { selectProvider } from './provider-selection';
 import { test, expect } from '@playwright/test';
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
 const providers = [
@@ -20,8 +21,7 @@ test('new providers preserve protocol endpoints and credentials through save and
     await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
-    await dialog.getByRole('searchbox').fill(preset === 'volcengine' ? '豆包' : preset === 'siliconflow' ? '硅基流动' : label);
-    await dialog.getByRole('button', { name: label, exact: true }).click();
+    await selectProvider(dialog, label, preset === 'volcengine' ? '豆包' : preset === 'siliconflow' ? '硅基流动' : label);
     await dialog.getByText('More configuration', { exact: true }).click();
     const endpoint = dialog.getByLabel('Service URL', { exact: true });
     await expect(endpoint).toHaveValue(address);
@@ -41,6 +41,7 @@ test('new providers preserve protocol endpoints and credentials through save and
     expect(connection.Endpoint).toBe(base + (preset === 'anthropic' ? '/messages' : '/chat/completions'));
     const models = await (await page.request.get('/api/models')).json();
     expect(models.filter((m: { ResourceID: string }) => m.ResourceID === resource.ID)).toHaveLength(preset === 'anthropic' ? 1 : 2);
+    await expect(page.locator('.resources-provider-option').filter({ hasText: name }).locator('[data-provider-icon]')).toHaveAttribute('data-provider-icon', preset);
     const row = page.locator('.provider-models-panel').filter({ has: page.getByRole('heading', { name, exact: true }) });
     await row.getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Edit provider', exact: true }).click();
