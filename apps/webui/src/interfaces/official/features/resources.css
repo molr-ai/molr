@@ -41,7 +41,6 @@
 .resource-model-limits { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 8px 0 0; font-size: 12px; }
 .resource-model-limits dt { color: var(--color-text-muted); font-size: 11px; }
 .resource-model-limits dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.resource-model-limits small { color: var(--color-text-muted); font-size: 11px; }
 .record-more.ui-icon-button { width: 28px; height: 28px; color: var(--color-text-muted); }
 
 .resources-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: min(480px, 65vh); padding: 40px 24px; text-align: center; }
@@ -149,8 +148,9 @@
 .resources-workspace > .ui-tabs > .ui-tabs__panel:not([hidden]) { min-height: 0; overflow: auto; flex: 1; padding: 20px 24px; }
 .resources-workspace > .ui-tabs > .ui-tabs__panel:has(> .resources-master) { padding: 24px; }
 @media (--molr-mobile) {
-  .resources-workspace > .ui-tabs > .ui-tabs__panel:not([hidden]) { padding: 12px; }
-  .resources-workspace > .ui-tabs > .ui-tabs__panel:has(> .resources-master) { padding: 12px; }
+  .resources-workspace > .ui-tabs > .ui-tabs__list { padding-inline: 14px; }
+  .resources-workspace > .ui-tabs > .ui-tabs__panel:not([hidden]) { padding: 12px 14px; }
+  .resources-workspace > .ui-tabs > .ui-tabs__panel:has(> .resources-master) { padding: 12px 14px; }
   .sandbox-heading h2 { font-size: 15px; }
   .sandbox-heading-actions { gap: 0; }
   .sandbox-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
@@ -228,7 +228,7 @@
 .resources-provider-nav[hidden], .resources-provider-detail[hidden] { display: none; }
 @media (--molr-mobile) {
   .resources-model-layout { flex-direction: column; }
-  .resources-provider-nav { width: 100%; flex: 1; }
+  .resources-provider-nav { width: 100%; flex: 1; padding: 12px 14px; }
   .resources-provider-nav::after { display: none; }
   .resources-provider-option { border-radius: 0; }
   .resources-provider-option + .resources-provider-option { border-top: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent); }
