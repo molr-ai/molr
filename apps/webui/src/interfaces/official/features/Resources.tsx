@@ -7,7 +7,7 @@ import { ResourceQuotaUsage } from './ResourceConstraints';
 import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useRef, useState } from 'react';
-import { ModalPresence, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast, useBreakpoint } from '@molr/ui';
+import { ModalPresence, SlidingHighlight, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast, useBreakpoint } from '@molr/ui';
 import { BookOpen, Bot, ChevronRight, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
 import { DefaultModelSettings } from './DefaultModelSettings';
 import { ProviderModelsPanel } from './ProviderModelsPanel';
@@ -59,11 +59,11 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
     ]} />;
   const modelContent = <div className="resources-model-layout">
     <nav className="resources-provider-nav" aria-label={t.resources.providerList} hidden={mobile && !!provider}>
-      <div className="resources-provider-options">
-        {query.loading && !query.data ? <Loading /> : providers.map(resource => <button key={resource.ID} type="button" className="resources-provider-option" aria-label={resource.Name} aria-current={provider?.ID === resource.ID ? 'page' : undefined} onClick={event => { providerTrigger.current = event.currentTarget; navigate('resources', resource.ID); }}>
+      <SlidingHighlight className="resources-provider-options" value={provider?.ID} disabled={mobile}>
+        {query.loading && !query.data ? <Loading /> : providers.map(resource => <button key={resource.ID} type="button" className="resources-provider-option" data-sliding-item={resource.ID} aria-label={resource.Name} aria-current={provider?.ID === resource.ID ? 'page' : undefined} onClick={event => { providerTrigger.current = event.currentTarget; navigate('resources', resource.ID); }}>
           <Bot size={18} aria-hidden="true" /><span><strong>{resource.Name}</strong><small>{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</small></span><ChevronRight size={16} aria-hidden="true" />
         </button>)}
-      </div>
+      </SlidingHighlight>
       <Button size="sm" variant="secondary" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button>
     </nav>
     <div className="resources-provider-detail" hidden={mobile && !provider}>
