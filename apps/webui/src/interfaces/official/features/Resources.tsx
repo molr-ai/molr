@@ -6,16 +6,17 @@ import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
 import { ResourceQuotaUsage } from './ResourceConstraints';
 import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
-import { useEffect, useState } from 'react';
-import { ModalPresence, Badge, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast } from '@molr/ui';
-import { BookOpen, Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ModalPresence, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast, useBreakpoint } from '@molr/ui';
+import { BookOpen, Bot, ChevronRight, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
 import { DefaultModelSettings } from './DefaultModelSettings';
-import { ProviderModelsDrawer } from './ProviderModelsDrawer';
+import { ProviderModelsPanel } from './ProviderModelsPanel';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
 import { Sandboxes } from './Sandboxes';
 import { ToolsCatalog } from './ToolsCatalog';
 import { SkillsCatalog } from './SkillsCatalog';
 import type { SandboxView } from './Sandboxes';
+import { useNavigation } from '../../../navigation';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { useReauthentication } from '../components/ReauthenticationDialog';
@@ -28,6 +29,8 @@ import './resources.css';
 type Tab = 'model' | 'tool' | 'skill' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
+  const { navigate } = useNavigation();
+  const mobile = useBreakpoint('mobile'), providerTrigger = useRef<HTMLButtonElement | null>(null);
   const { principal } = useSession(), { toast } = useToast(), pricingAction = useAction();
   const refreshPrices = () => void pricingAction.run(async () => {
     const result = await api.post<PricingRefreshResult>('/api/models/refresh-pricing');
@@ -37,36 +40,48 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   useErrorToast(pricingAction.error, refreshPrices);
   const [status, setStatus] = useState<Record<string, string>>({});
   const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'skill', 'sandbox'].includes(value));
-  const [selectedProvider, setSelectedProvider] = useState<{ id: string; addModel?: boolean } | null>(null), [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
+  const [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Resource | null>(null), [deletingProvider, setDeletingProvider] = useState<Resource | null>(null), [disconnect, setDisconnect] = useState<Resource | null>(null);
   const target = query.data?.find(resource => resource.ID === resourceID);
-  useEffect(() => { if (target) { setTab(target.Kind === 'model' || target.Kind === 'tool' ? target.Kind : 'sandbox'); if (target.Kind === 'model') setSelectedProvider({ id: target.ID }); } }, [target?.ID, target?.Kind]);
+  useEffect(() => { if (target) { setTab(target.Kind === 'model' || target.Kind === 'tool' ? target.Kind : 'sandbox'); } }, [target?.ID, target?.Kind]);
   const providers = (query.data ?? []).filter(resource => resource.Kind === 'model');
-  const provider = providers.find(resource => resource.ID === selectedProvider?.id);
+  const provider = providers.find(resource => resource.ID === resourceID) ?? (mobile ? undefined : providers[0]);
+  useEffect(() => { if (!resourceID) providerTrigger.current?.focus({ preventScroll: true }); }, [resourceID]);
+  const backToProviders = () => { navigate('resources'); };
   useErrorToast(query.error || models.error || action.error, () => { query.reload(); models.reload(); });
   const refreshModels = useMutation([]);
-  const modelContent = <>{query.loading && !query.data ? <Loading /> : !providers.length ? <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p><Button size="sm" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button></div> : <div className="resource-list">{providers.map(resource => {
-    const open = selectedProvider?.id === resource.ID, connectionState = status[resource.ID] || resource.State;
-    return <article key={resource.ID} className="resource-row interactive-list-row" data-selected={open || undefined}><div className="resource-row-summary"><span className="resource-row-icon"><Bot size={17} /></span><div className="resource-row-copy"><h2><button className="row-open" type="button" aria-haspopup="dialog" onClick={() => setSelectedProvider({ id: resource.ID })}>{resource.Name}</button></h2><p className="resource-row-meta">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p></div><Badge role={status[resource.ID] ? 'status' : undefined} tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[
-      { id: 'add-model', label: t.resources.addModel, icon: <Plus size={15} />, disabled: resource.State !== 'available', onSelect: () => setSelectedProvider({ id: resource.ID, addModel: true }) },
+  const providerActions = (resource: Resource) => <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[
       { id: 'refresh-models', label: t.resources.refreshModels, icon: <RefreshCw size={15} />, disabled: action.busy || resource.State === 'disconnected', onSelect: () => void action.run(() => refreshModels('/api/resources/refresh-models', { ID: resource.ID }, resource.Version, resource.ID), undefined, false) },
       { id: 'check', label: t.resources.check, icon: <Wifi size={15} />, disabled: action.busy || resource.State === 'disconnected', onSelect: () => void action.run(async () => { const result = await api.post<{ State: string }>(`/api/resources/${resource.ID}/check`); setStatus(previous => ({ ...previous, [resource.ID]: result.State })); }, undefined, false) },
       { id: 'edit', label: t.resources.editProvider, icon: <Pencil size={15} />, disabled: resource.State !== 'available' && resource.Authentication !== 'chatgpt', onSelect: () => setEditingProvider(resource) },
       ...(resource.State !== 'disconnected' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, onSelect: () => resource.Authentication === 'chatgpt' ? setEditingProvider(resource) : setDisconnect(resource) }] : []),
       { id: 'delete', label: t.resources.deleteProvider, icon: <Trash2 size={15} />, danger: true, onSelect: () => resource.Authentication === 'chatgpt' && resource.State !== 'disconnected' ? setEditingProvider(resource) : setDeletingProvider(resource) },
-    ]} /></div></article>;
-  })}</div>}</>;
+    ]} />;
+  const modelContent = <div className="resources-model-layout">
+    <nav className="resources-provider-nav" aria-label={t.resources.providerList} hidden={mobile && !!provider}>
+      <div className="resources-provider-options">
+        {query.loading && !query.data ? <Loading /> : providers.map(resource => <button key={resource.ID} type="button" className="resources-provider-option" aria-label={resource.Name} aria-current={provider?.ID === resource.ID ? 'page' : undefined} onClick={event => { providerTrigger.current = event.currentTarget; navigate('resources', resource.ID); }}>
+          <Bot size={18} aria-hidden="true" /><span><strong>{resource.Name}</strong><small>{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</small></span><ChevronRight size={16} aria-hidden="true" />
+        </button>)}
+      </div>
+      <Button size="sm" variant="secondary" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button>
+    </nav>
+    <div className="resources-provider-detail" hidden={mobile && !provider}>
+      {provider ? <ProviderModelsPanel key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === provider.ID)} loading={models.loading && !models.data} onClose={backToProviders} actions={providerActions(provider)} connectionState={status[provider.ID] || provider.State} /> : !query.loading && <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p></div>}
+    </div>
+    {mobile && !provider && !providers.length && !query.loading && <p className="resources-provider-empty muted">{t.resources.connectHelp.model}</p>}
+  </div>;
   const disconnectResource = useMutation([disconnect]);
   return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }, ...(principal?.User?.Administrator ? [{ id: 'refresh-pricing', label: t.resources.refreshPricing, icon: <RefreshCw size={15} />, disabled: pricingAction.busy, onSelect: refreshPrices }] : [])]} />} />
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
-      { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? <div className="resources-master">{modelContent}</div> : null },
+      { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? modelContent : null },
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },
       { value: 'skill', label: 'Skills', icon: <BookOpen size={15} />, content: tab === 'skill' ? <SkillsCatalog /> : null },
       { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} /> : null },
     ]} />
-    <ModalPresence>{tab === 'model' && selectedProvider && provider && <ProviderModelsDrawer key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === selectedProvider.id)} loading={models.loading && !models.data} addModel={selectedProvider.addModel} onClose={() => setSelectedProvider(null)} />}</ModalPresence>
+
     <ModalPresence>{defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}</ModalPresence>
-    <ModalPresence>{connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}</ModalPresence><ModalPresence>{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}</ModalPresence><ModalPresence>{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}</ModalPresence><ModalPresence>{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => disconnectResource('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}</ModalPresence>
+    <ModalPresence>{connect && <ProviderConnectionDialog onConnected={resource => { setTab('model'); navigate('resources', resource.ID); }} onClose={() => setConnect(false)} />}</ModalPresence><ModalPresence>{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}</ModalPresence><ModalPresence>{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}</ModalPresence><ModalPresence>{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => disconnectResource('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}</ModalPresence>
   </section>;
 }
 function DeleteProvider({ resource, onClose }: { resource: Resource; onClose: () => void }) {

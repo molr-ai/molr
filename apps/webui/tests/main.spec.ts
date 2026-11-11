@@ -18,17 +18,16 @@ async function dismissSaved(page: Page) {
     await saved.first().getByRole('button', { name: 'Close', exact: true }).click();
   }
 }
-// Resource cards keep model and provider actions in a menu.
+// Provider actions live in the selected detail pane.
 async function cardAction(page: Page, card: Locator, name: string) {
-  const drawer = page.locator('.provider-models-drawer');
-  if (await drawer.isVisible()) { await drawer.locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click(); await expect(drawer).not.toBeVisible(); }
-  await card.getByRole('button', { name: 'More', exact: true }).click();
-  await page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name, exact: true }).click();
+  await openProviderModels(card);
+  const panel = page.locator('.provider-models-panel');
+  if (name === 'Add model') { await panel.getByRole('button', { name, exact: true }).click(); return; }
+  await panel.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
 }
 // Desktop exposes settings in the sidebar; mobile exposes the account in the assistant list.
 async function openUserSettings(page: Page) {
-  const drawer = page.locator('.provider-models-drawer');
-  if (await drawer.isVisible()) await drawer.locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
   const navigation = page.getByRole('navigation', { name: 'Molr', exact: true });
   const sidebar = navigation.getByRole('button', { name: 'User settings', exact: true });
   if (await sidebar.isVisible()) await sidebar.click();
@@ -60,11 +59,12 @@ async function openSettingsSection(page: Page, name: string) {
   await item.click();
 }
 const settingsPane = (page: Page) => page.locator('.settings-pane:visible');
-// Provider rows open model lists in a drawer.
-const resourceRow = (page: Page, name: string) => page.locator('.resource-row').filter({ has: page.getByRole('heading', { name, exact: true }) });
+// Provider entries select the detail pane.
+const resourceRow = (page: Page, name: string) => page.locator('.resources-provider-option').filter({ hasText: name });
 const resourceCategory = (page: Page, name: string) => page.getByRole('tab', { name, exact: true });
 async function openProviderModels(row: Locator) {
-  await row.locator('h2 button').click();
+  await row.waitFor({ state: 'attached' });
+  if (await row.isVisible()) await row.click();
 }
 async function login(page: Page) {
   await page.goto('/');
@@ -124,13 +124,14 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   const providerCard = resourceRow(page, resourceName);
   await openProviderModels(providerCard);
   await cardAction(page, providerCard, 'Add model');
-  const modelForm = page.getByRole('dialog', { name: 'Add model', exact: true });
+  const modelForm = page.getByRole('region', { name: 'Add model', exact: true });
   await expect(modelForm.getByLabel('API Key', { exact: false })).toHaveCount(0);
   await modelForm.getByRole('textbox', { name: 'Model identifier', exact: true }).fill(resourceName);
   for (const label of ['Input price (USD / million tokens)', 'Output price (USD / million tokens)', 'Cached input price (USD / million tokens)']) await modelForm.getByRole('spinbutton', { name: label, exact: true }).fill('0');
   await modelForm.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(modelForm).not.toBeVisible();
-  await page.locator('.provider-models-drawer > .ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
+  const providerBack = page.locator('.provider-models-heading').getByRole('button', { name: 'Back', exact: true });
+  if (await providerBack.isVisible()) await providerBack.click();
   await expect(providerCard).toContainText(resourceName);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.getByRole('button', { name: 'Hire new assistant', exact: true }).first().click();
@@ -849,7 +850,7 @@ test('provider connection discovers models without manual configuration and keep
   expect(models).toHaveLength(2); expect(models.every((model: { ID: string }) => model.ID !== resource.ID)).toBe(true);
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator('.provider-models-page').first().locator('li').filter({ hasText: 'discovered-one' }).locator('.resource-model-open').click();
-  const configuration = page.getByRole('dialog', { name: 'Configure model', exact: true });
+  const configuration = page.getByRole('region', { name: 'Configure model', exact: true });
   const prices = configuration.getByRole('spinbutton', { name: /^(Input|Output|Cached input) price/ });
   await expect(prices).toHaveCount(3);
   for (const field of await prices.all()) await field.fill('0');
@@ -1681,7 +1682,7 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(0);
   const configure = async () => {
     await page.locator('.provider-models-page').first().locator('.resource-model-open').click();
-    return page.getByRole('dialog', { name: 'Configure model', exact: true });
+    return page.getByRole('region', { name: 'Configure model', exact: true });
   };
   let dialog = await configure();
   await expect(dialog.getByRole('switch', { name: 'Custom pricing', exact: true })).not.toBeChecked();
@@ -1738,7 +1739,7 @@ test('official provider prices preserve currencies and usage tiers', async ({ pa
   await page.goto('/#/resources'); await page.reload();
   await openProviderModels(resourceRow(page, `Auto zhipu ${suffix}`));
   await page.locator('.provider-models-page').first().locator('.resource-model-open').click();
-  const dialog = page.getByRole('dialog', { name: 'Configure model', exact: true });
+  const dialog = page.getByRole('region', { name: 'Configure model', exact: true });
   await expect(dialog.getByRole('switch', { name: 'Custom pricing', exact: true })).not.toBeChecked();
   await expect(dialog.getByText('Base tier', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Output > 199 tokens', { exact: true })).toBeVisible();
@@ -1830,7 +1831,7 @@ test('currency preferences preserve native budgets and prices without assistant 
     const card = resourceRow(page, `${name} seed`);
     await openProviderModels(card);
     await cardAction(page, card, 'Add model');
-    const model = page.getByRole('dialog', { name: 'Add model', exact: true });
+    const model = page.getByRole('region', { name: 'Add model', exact: true });
     await expect(model.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await model.getByRole('textbox', { name: 'Model identifier', exact: true }).fill('native-cny');
     await model.getByRole('spinbutton', { name: 'Input price (CNY / million tokens)', exact: true }).fill('7');
@@ -2732,7 +2733,7 @@ for (const [preset, name, endpoint] of [
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor).not.toBeVisible();
   await dismissSaved(page);
-  await expect(resourceRow(page, `${resourceName} edited`)).toBeVisible();
+  await expect(page.locator('.provider-models-heading')).toContainText(`${resourceName} edited`);
   const current = await (await page.request.get(`/api/resources/${resource.ID}`)).json();
   await post(page, '/api/resources/configure-model', { ID: resource.ID, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: current.Version }, Model: { Name: 'discovered-one', SupportsTools: true, ContextLimit: 65536, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } } }, false);
   const models = await (await page.request.get('/api/models')).json();

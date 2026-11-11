@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Badge, Button, Drawer, IconButton, useBreakpoint } from '@molr/ui';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Badge, Button, IconButton, useBreakpoint } from '@molr/ui';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { api, APIError } from '@molr/sdk';
 import type { CurrencyContext, Model, Resource } from '@molr/sdk';
@@ -9,12 +9,13 @@ import { Loading, useAction } from '../components/common';
 import { ModelConfigurationForm } from './ModelConfigurationForm';
 
 type Configuration = { resource: Resource; model?: Model; currencyContext: CurrencyContext };
-export function ProviderModelsDrawer({ resource, models, loading, addModel, onClose }: { resource: Resource; models: Model[]; loading: boolean; addModel?: boolean; onClose: () => void }) {
+export function ProviderModelsPanel({ resource, models, loading, actions, connectionState, onClose }: { resource: Resource; models: Model[]; loading: boolean; actions: ReactNode; connectionState: string; onClose: () => void }) {
   const { t } = useCopy(), mobile = useBreakpoint('mobile'), action = useAction();
-  const [target, setTarget] = useState<{ modelID?: string } | null>(addModel ? {} : null);
+  const [target, setTarget] = useState<{ modelID?: string } | null>(null);
   const [configuration, setConfiguration] = useState<Configuration | null>(null), [error, setError] = useState<unknown>();
   const [attempt, setAttempt] = useState(0);
   const backRef = useRef<HTMLButtonElement>(null), addRef = useRef<HTMLButtonElement>(null), triggerRef = useRef<HTMLButtonElement | null>(null), detailRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null), listScroll = useRef(0);
   const detail = target !== null;
   useEffect(() => {
     if (!target) return;
@@ -35,17 +36,23 @@ export function ProviderModelsDrawer({ resource, models, loading, addModel, onCl
   useErrorToast(error, () => setAttempt(value => value + 1));
   useEffect(() => {
     if (detail) { detailRef.current?.scrollTo(0, 0); backRef.current?.focus({ preventScroll: true }); }
-    else if (triggerRef.current) { triggerRef.current.focus({ preventScroll: true }); }
+    else if (triggerRef.current) { listRef.current?.scrollTo(0, listScroll.current); triggerRef.current.focus({ preventScroll: true }); }
   }, [detail]);
+  useEffect(() => { if (mobile) backRef.current?.focus({ preventScroll: true }); }, [mobile]);
   function configure(model: Model | undefined, trigger: HTMLButtonElement) {
+    listScroll.current = listRef.current?.scrollTop ?? 0;
     triggerRef.current = trigger; action.reset(); setConfiguration(null); setTarget({ modelID: model?.ID });
   }
   function back() { if (!action.busy) { triggerRef.current ??= addRef.current; setError(undefined); setTarget(null); } }
   const title = detail ? target.modelID ? t.resources.configureModel : t.resources.addModel : resource.Name;
-  return <Drawer open className="provider-models-drawer" side={mobile ? 'bottom' : 'right'} title={title} closeLabel={t.close} dismissible={!action.busy} onOpenChange={open => { if (!open && !action.busy) onClose(); }}
-    headerContent={detail ? <div className="provider-models-heading"><IconButton ref={backRef} label={t.back} disabled={action.busy} onClick={back}><ChevronLeft size={18} /></IconButton><span>{title}</span></div> : undefined}>
+  return <section className="provider-models-panel" aria-label={title}>
+    <header className="provider-models-heading">
+      {(detail || mobile) && <IconButton ref={backRef} label={t.back} disabled={action.busy} onClick={detail ? back : onClose}><ChevronLeft size={18} /></IconButton>}
+      <h2>{title}</h2>{!detail && <><Badge tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge><span className="provider-models-actions">{actions}</span></>}
+    </header>
     <div className="provider-models-pages" data-detail={detail}>
-      <div className="provider-models-page" inert={detail} aria-hidden={detail}>
+      <div ref={listRef} className="provider-models-page" inert={detail} aria-hidden={detail}>
+        <p className="provider-models-description muted">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p>
         <div className="provider-models-toolbar"><h3>{t.resources.providerModels}</h3><Button ref={addRef} size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={event => configure(undefined, event.currentTarget)}><Plus size={14} />{t.resources.addModel}</Button></div>
         {loading ? <Loading /> : models.length ? <ul className="resource-models-list">{models.map(model => <li key={model.ID}>
           <div className="resource-model-copy"><div className="resource-model-name"><strong><button type="button" className="resource-model-open row-open" disabled={resource.State !== 'available'} onClick={event => configure(model, event.currentTarget)}>{model.Name}</button></strong>{!model.Pricing && <Badge tone="warning">{t.resources.pricingUnknown}</Badge>}</div>
@@ -57,5 +64,5 @@ export function ProviderModelsDrawer({ resource, models, loading, addModel, onCl
         {configuration ? <ModelConfigurationForm {...configuration} action={action} onClose={() => { triggerRef.current ??= addRef.current; setTarget(null); }} /> : !error && <Loading />}
       </div>
     </div>
-  </Drawer>;
+  </section>;
 }

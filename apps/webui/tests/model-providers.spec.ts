@@ -41,7 +41,7 @@ test('new providers preserve protocol endpoints and credentials through save and
     expect(connection.Endpoint).toBe(base + (preset === 'anthropic' ? '/messages' : '/chat/completions'));
     const models = await (await page.request.get('/api/models')).json();
     expect(models.filter((m: { ResourceID: string }) => m.ResourceID === resource.ID)).toHaveLength(preset === 'anthropic' ? 1 : 2);
-    const row = page.locator('.resource-row').filter({ has: page.getByRole('button', { name, exact: true }) });
+    const row = page.locator('.provider-models-panel').filter({ has: page.getByRole('heading', { name, exact: true }) });
     await row.getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Edit provider', exact: true }).click();
     const edit = page.getByRole('dialog', { name: 'Edit provider', exact: true });

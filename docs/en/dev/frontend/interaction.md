@@ -90,7 +90,7 @@ The page header of the Model tab on the Resource page retains only the "More" me
 
 The provider connection dialog and initial setup share local model discovery. The section appears only after a successful scan finds at least one service with `State=ready` and a nonempty `Models` list. During the initial scan, after a failed scan, or when no models are available, its heading, placeholder text, and scan button stay hidden.
 
-Click a provider to open its model list in a drawer. Clicking anywhere in a model row slides left to the configuration page in the same drawer and adds a back button to the header. Saving, cancelling, or going back restores the list and its scroll position; closing the drawer restores focus to the provider entry. "Add model" uses the same configuration page and is available in the drawer and provider menu. Hidden pages are inert, and reduced motion disables the sliding transition.
+The resource Models page uses a provider list and “Connect provider” button on the left, with the selected provider’s details, management menu, and models on the right. Desktop selects the first provider by default. Mobile opens with the list; selecting a provider opens details, and going back restores list scroll and entry focus. Model configuration switches within the detail pane. Saving, cancelling, or going back restores the model list and scroll position. “Add model” sits above the list. Hidden pages are inert, and reduced motion disables the slide transition.
 
 ## Personal Data Export
 
