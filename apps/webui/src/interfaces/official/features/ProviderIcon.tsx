@@ -63,9 +63,10 @@ const icons: Record<string, ReactNode> = {
   </>
 };
 
-export function ProviderIcon({ provider, size = 18, className }: { provider?: string; size?: number; className?: string }) {
+export function ProviderIcon({ provider, size = 18, className, fallback }: { provider?: string; size?: number; className?: string; fallback?: ReactNode }) {
   const brand = provider && Object.hasOwn(icons, provider) ? icons[provider] : undefined;
   if (!brand) {
+    if (fallback) return fallback;
     const Fallback = provider === 'custom' ? Settings2 : ['llamacpp', 'sglang'].includes(provider ?? '') ? Monitor : Bot;
     return <Fallback size={size} className={className} data-provider-icon="fallback" aria-hidden="true" />;
   }

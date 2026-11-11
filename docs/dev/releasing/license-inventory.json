@@ -4,7 +4,7 @@
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "00ff187a7589b2e8aa2d65d68c51f06d15c071f4d2053bc8a7326ef1b6ea21a7",
+    "package-lock.json": "2b42188090b37eb357711ade73475fb2ade5f79a75d2cc8bac2fea0f3fe24e34",
     "runtime/go.mod": "20695b66298a1aabe9327797372483900b07fe563d768cc5db5f76f7fb532e6b",
     "runtime/go.sum": "f2da58d8690bb4fd0eb35f8262bfd09fec890940119577fe7db8b3935693c66d",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
@@ -28,7 +28,8 @@
     "apps/desktop/scripts/build-windows-runtime.mjs": "437a4a45ad2fa2ab3caf2ad9c2d7b41dcb91dad6ee2ed62a48d815b2899de62d",
     "apps/desktop/scripts/notarization.mjs": "2c2add1c07985be03791b386d9f601760364d8c93ab88934a6fef3855df4ab86",
     "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx": "11ed9b89190dfb3f3c2b8954804d0d01a29df016a02a0cbd5f747fadbb7a2475",
-    "apps/webui/src/interfaces/official/features/ProviderIcon.tsx": "cff63ee5d3e616ff004ffa2aa78024f2c3dbbbc26c8b31ddfbfbd905d6e389c7"
+    "apps/webui/src/interfaces/official/features/ProviderIcon.tsx": "0cfaf3c9c80e3fa527d6779fea1ad68d73cdeb4b4a086ebb0a6d7db73f736bc7",
+    "apps/webui/package.json": "dbb53c68cd83e7821332b1e7bb38471370a3705f7fcfb24d5c14a582d91e999d"
   },
   "npm": [
     {
@@ -12218,6 +12219,15 @@
         "apps/webui/src/interfaces/official/features/ProviderIcon.tsx"
       ],
       "scope": "Reviewed 15 monochrome model provider icons from Lobe Icons at ea434b96e75813517b377825e01c0df61dee8836 (MIT, copyright 2023 LobeHub). Original path geometry retained with currentColor and shared dimensions. Full source attribution and license included in distribution notices. No npm dependencies added."
+    },
+    {
+      "reviewedAt": "2026-11-11",
+      "files": [
+        "apps/webui/package.json",
+        "package-lock.json",
+        "apps/webui/src/interfaces/official/features/ProviderIcon.tsx"
+      ],
+      "scope": "Reused the already reviewed @phosphor-icons/react 2.1.10 dependency for WebUI sandbox operating-system icons, matching the website. No new third-party packages, versions, or license text. ProviderIcon adds a caller-supplied fallback without changing bundled brand geometry."
     }
   ]
 }

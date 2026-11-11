@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalPresence, Drawer, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
-import { ChevronRight, Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
+import { ChevronRight, Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
+import { SandboxSystemIcon } from './SandboxSystemIcon';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
 export type { SandboxView } from '@molr/sdk';
@@ -99,7 +100,7 @@ export function Sandboxes({ resources, resourceID = '', connecting, onConnecting
     <div className="sandbox-layout">
       <aside className="sandbox-sidebar" hidden={mobile && detailVisible}>
         <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={mobile} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item resource-sidebar-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={event => { listTrigger.current = event.currentTarget; setSelected(item.ID); }}>
-          <Server size={17} /><span className="resource-sidebar-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`resource-sidebar-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>{mobile && <ChevronRight className="sandbox-item-caret" size={16} aria-hidden="true" />}
+          <SandboxSystemIcon os={item.Info.Capabilities.OS} /><span className="resource-sidebar-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`resource-sidebar-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>{mobile && <ChevronRight className="sandbox-item-caret" size={16} aria-hidden="true" />}
         </button></li>)}</SlidingHighlight>
         {!mobile && <Button className="sandbox-connect" variant="secondary" size="sm" onClick={() => onConnectingChange(true)}><Plus size={15} />{copy.connect}</Button>}
       </aside>

@@ -90,7 +90,7 @@ The page header of the Model tab on the Resource page retains only the "More" me
 
 The data privacy notice appears first in the provider connection content and can be dismissed. Dismissal is stored for the current account in this browser and shared across providers, reopening, and reloads.
 
-Provider brand icons use bundled monochrome SVGs with the same theme colors and sizing conventions as chat entry icons. Identity comes from the connection’s `Preset`; unknown and custom services use a standard fallback instead of inferring a brand from editable names.
+Provider brand icons use bundled monochrome SVGs with the same theme colors and sizing conventions as chat entry icons. Identity comes from the connection’s `Preset`; unknown and custom services in the resource model list retain the robot icon instead of inferring a brand from editable names. Sandbox lists use `Info.Capabilities.OS` to show the same Linux, macOS, or Windows icons as the website download page; missing and unknown systems retain the server icon.
 
 On phones, provider connection uses the shared searchable Select with cloud/local groups and provider alias search. Switching providers preserves their drafts; testing or saving disables the picker. Desktop retains category filters, a search field, and a provider list.
 
