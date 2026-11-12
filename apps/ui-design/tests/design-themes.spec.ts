@@ -53,6 +53,8 @@ test('keyboard, system appearance, cross-tab changes and Chinese labels work', a
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'iris');
   const other = await context.newPage();
   await other.goto('/');
+  // Observe the receiving tab in the foreground so background scheduling cannot stall assertions.
+  await page.bringToFront();
   await other.evaluate(() => localStorage.setItem('molr-ui-design-palette', 'sand'));
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'sand');
   await other.evaluate(() => localStorage.setItem('molr-ui-design-palette', 'unknown'));
