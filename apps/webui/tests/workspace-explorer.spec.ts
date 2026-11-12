@@ -123,6 +123,7 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await saveAs.getByLabel('Name', { exact: true }).fill('copy.txt');
   await saveAs.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(panel.locator('.files-text')).toHaveText('unsaved draft');
+  await expect(panel.locator('.files-footer').getByRole('status')).toBeHidden();
   const download = page.waitForEvent('download');
   await panel.getByRole('link', { name: 'Download file', exact: true }).click();
   expect((await download).suggestedFilename()).toBe('copy.txt');
@@ -132,6 +133,8 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   const rename = page.getByRole('dialog', { name: 'Rename', exact: true });
   await rename.getByLabel('Name', { exact: true }).fill('renamed.txt'); await rename.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(panel.locator('.files-filebar strong')).toHaveText('renamed.txt');
+  // The name updates before the directory and preview reads finish.
+  await expect(panel.locator('.files-footer').getByRole('status')).toBeHidden();
   await panel.getByRole('button', { name: 'Back to files', exact: true }).click();
   await panel.getByRole('button', { name: 'Actions: renamed.txt', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Move to…', exact: true }).click();
@@ -139,6 +142,7 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await move.getByRole('button', { name: 'outputs', exact: true }).click();
   await move.getByRole('button', { name: 'Move here', exact: true }).click();
   await expect(move).not.toBeVisible();
+  await expect(panel.locator('.files-footer').getByRole('status')).toBeHidden();
   expect((await page.request.get(`${base}?action=read&path=outputs/renamed.txt`)).ok()).toBeTruthy();
   const input = panel.locator('input[type=file]');
   await input.setInputFiles({ name: 'upload.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 255, 1, 2]) });
