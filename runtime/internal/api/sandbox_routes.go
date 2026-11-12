@@ -112,6 +112,14 @@ func (s *HTTPServer) sandboxRoutes() {
 			return invoke(r, action, raw)
 		})
 	}
+	s.handle("GET /api/sandboxes/{id}/programs", func(r *http.Request) (any, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return nil, err
+		}
+		raw, _ := json.Marshal(map[string]any{"ID": id, "Command": r.URL.Query().Get("command"), "Refresh": r.URL.Query().Get("refresh") == "true"})
+		return invoke(r, "programs", raw)
+	})
 	s.handle("GET /api/sandboxes/{id}/resources", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
 		if err != nil {

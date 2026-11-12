@@ -1,3 +1,4 @@
+import { HostPrograms } from './HostPrograms';
 import { useMutation } from '../../../use-mutation';
 import { sandboxComputeState, usesNetworkToggle } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
@@ -155,6 +156,7 @@ function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sa
       <p className="muted">{zh ? '独立授予，可设置有效期或随时撤销。存储、计算和网络权限仍可分别管理。' : 'Grant independently, set an expiry or revoke at any time. Storage, compute and network permissions remain separately managed.'}</p></div>
       <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" disabled={!ready} onClick={() => onAccess(compute)}><Users size={15} />{ready ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button>{!count && ready && <span className="muted">{copy.noAccess}</span>}</div>
     </article> : <Empty title={copy.noCompute} description={copy.noComputeHelp} />}
+    {available && <HostPrograms key={sandbox.ID} sandboxID={sandbox.ID} />}
     {!available && <p className="muted sandbox-resource-description">{zh ? '此沙盒尚未开放完全访问权限。' : 'Full access is not available on this sandbox.'}</p>}
   </div>;
 }

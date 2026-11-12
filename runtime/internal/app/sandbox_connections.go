@@ -22,6 +22,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/platform/hostprograms"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
@@ -43,6 +44,7 @@ type sandboxConnection struct {
 	Digest  string
 }
 type sandboxRouter struct {
+	programs      *hostprograms.Catalog
 	remoteRuntime *sandboxruntime.Remote
 	adapters      adapters
 	shell         *shellService
@@ -62,7 +64,7 @@ func newSandboxRouter(a adapters, shell *shellService, key []byte) (*sandboxRout
 	if err != nil {
 		return nil, err
 	}
-	s := &sandboxRouter{adapters: a, shell: shell, cipher: box}
+	s := &sandboxRouter{adapters: a, shell: shell, cipher: box, programs: hostprograms.New([]string{a.dataDir, a.storageConfig.WorkRoot})}
 	s.remoteRuntime = sandboxruntime.New(a.store, remoteSandboxHost{s})
 	return s, nil
 }
@@ -136,7 +138,7 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		return nil, err
 	}
 	accessAction := policy.Manage
-	if action == "list" || action == "tools" || action == "quota_usage" {
+	if action == "list" || action == "tools" || action == "quota_usage" || action == "programs" {
 		accessAction = policy.Read
 	}
 	if err := s.adapters.policy.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource"}, Action: accessAction}); err != nil {
@@ -153,6 +155,8 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		return nil, refreshSandboxResources(ctx, s.adapters.store, s.resources, p, q.ID)
 	}
 	switch action {
+	case "programs":
+		return s.hostPrograms(ctx, p, raw)
 	case "quota_usage":
 		var q struct{ AssistantID, ResourceID core.ID }
 		if err := decodeSandboxArgs(raw, &q); err != nil {

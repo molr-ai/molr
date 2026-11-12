@@ -22,6 +22,7 @@ import (
 	"molr.ai/runtime/internal/media"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/platform/hostprograms"
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
@@ -33,6 +34,7 @@ type sandboxRequestKey struct{}
 // remoteSandboxBackend shares confined files and platform execution with Runtime.
 // Requests contain resource references, never caller-controlled host paths.
 type remoteSandboxBackend struct {
+	programs      *hostprograms.Catalog
 	cfg           config.Config
 	files         *resourceFileTools
 	runner        *sandbox.Runner
@@ -48,7 +50,7 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 	if err := prepareDirectory(cfg.DataDir); err != nil {
 		return nil, err
 	}
-	b := &remoteSandboxBackend{cfg: cfg}
+	b := &remoteSandboxBackend{cfg: cfg, programs: hostprograms.New([]string{cfg.DataDir, cfg.Sandbox.WorkRoot})}
 	b.files = newResourceFileTools(resourceFileOptions{adapters: adapters{dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}, resolveOverride: b.resolve, providerOverride: func(ctx context.Context) model.Provider {
 		q := ctx.Value(sandboxRequestKey{}).(sm.Request)
 		p := model.Provider{Protocol: model.Protocol(q.Protocol)}

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform/hostprograms"
 )
 
 type response struct {
@@ -86,6 +87,17 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 				return nil
 			}
 			switch r.URL.Path {
+			case "/v2/sandbox/programs":
+				var q hostprograms.Request
+				if err = decode(&q); err == nil {
+					if backend, ok := m.Backend.(interface {
+						Programs(context.Context, hostprograms.Request) (hostprograms.Snapshot, error)
+					}); ok {
+						value, err = backend.Programs(r.Context(), q)
+					} else {
+						err = core.NewError(core.Unavailable, "program discovery unavailable")
+					}
+				}
 			case "/v2/sandbox/directory":
 				var q DirectoryRequest
 				if err = decode(&q); err == nil {
@@ -257,6 +269,11 @@ func (c *Client) call(ctx context.Context, method string, input, output any) err
 		return json.Unmarshal(reply.Data, output)
 	}
 	return nil
+}
+func (c *Client) Programs(ctx context.Context, q hostprograms.Request) (hostprograms.Snapshot, error) {
+	var out hostprograms.Snapshot
+	err := c.call(ctx, "programs", q, &out)
+	return out, err
 }
 func (c *Client) Directory(ctx context.Context, q DirectoryRequest) (Directory, error) {
 	var out Directory

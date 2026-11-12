@@ -174,7 +174,7 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
   const target: PermissionTarget = { ...targetFor(selected, !!item.full_access, item.model_id), kind: item.resource_kind, resourceID: item.resource_id ?? '', sandboxID: nodeID || selected?.SandboxID || 'local' };
   function select(next: PermissionTarget) {
     const resource = resources.find(r => r.ID === next.resourceID);
-    const changed = next.resourceID !== target.resourceID || next.fullAccess !== target.fullAccess || next.kind !== target.kind;
+    const changed = next.sandboxID !== target.sandboxID || next.resourceID !== target.resourceID || next.fullAccess !== target.fullAccess || next.kind !== target.kind;
     setNodeID(next.sandboxID);
     onChange({ resource_kind: next.kind, resource_id: next.resourceID, model_id: next.modelID, full_access: next.fullAccess,
       ...(next.resourceID !== target.resourceID ? { grant_id: undefined, grant_version: undefined } : {}),
@@ -205,7 +205,7 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
       <p className="permission-review__note">{item.reason}</p>
       <PermissionTargetFields value={target} onChange={select} resources={resources} models={models} sandboxes={sandboxes.data ?? []} sandboxOnly={!primary} />
       {!loading && !available.length && <p>{zh ? '请先连接所需资源。' : 'Connect the required resource first.'} <a href="#/resources">{t.nav.resources}</a></p>}
-      {item.full_access && <><FullAccessScopeEditor value={item.full_access_scope} onChange={value => onChange({ full_access_scope: value })} /><Switch size="sm" label={zh ? '仅执行一次' : 'Use once'} checked={!!item.once} onChange={event => onChange({ once: event.target.checked })} /></>}
+      {item.full_access && <><FullAccessScopeEditor sandboxID={target.sandboxID} value={item.full_access_scope} onChange={value => onChange({ full_access_scope: value })} /><Switch size="sm" label={zh ? '仅执行一次' : 'Use once'} checked={!!item.once} onChange={event => onChange({ once: event.target.checked })} /></>}
       {!item.full_access && <Select multiple label={t.resources.actions} value={item.actions} onValueChange={value => onChange({ actions: value })} options={permissionOptions(t, selected)} />}
       {item.resource_kind === 'storage' && <Textarea label={t.resources.pathPrefixes} value={item.path_prefixes?.join('\n') ?? ''} onChange={event => onChange({ path_prefixes: lines(event.target.value) })} description={zh ? '相对于资源根目录；留空表示整个资源。' : 'Relative to the resource root; empty means the entire resource.'} />}
       {!item.full_access && <><ConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} compact kind={item.resource_kind} value={item.constraints} onChange={value => onChange({ constraints: value })} lockNetworkPeriod={!!item.grant_id && !!item.constraints?.network} />

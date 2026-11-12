@@ -140,6 +140,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/sandbox` |
 | GET | `/api/sandboxes` |
 | GET | `/api/sandboxes/{id}/resources` |
+| GET | `/api/sandboxes/{id}/programs` |
 | GET | `/api/schedules` |
 | GET | `/api/schedules/{id}` |
 | GET | `/api/search` |
@@ -699,3 +700,5 @@ Code errors use `Field=ConnectionCode`: malformed codes report `sandbox_connecti
 New model tools are assistant_list, assistant_hire and assistant_dismiss. conversation_publish accepts receiver={Type,ID} to open a direct conversation or conversation_id to reply; both must agree when supplied together. Messages return Sender, SenderID, Receiver and Origin. Group receivers are not yet supported.
 
 `POST /api/permission-requests/resolve` also reviews delegation requests. Send `RequestID`, `Decision` and `Mutation`; approval additionally requires current `AssistantVersion`, `ExpiresAt`, and either `Hiring={max_assistants,budget,grant_ids}` or `Communication={all_assistants,assistant_ids}` according to the request type. Resource grant fields are not accepted. `ApprovedDelegation` records the actual configuration; `ApprovedAssistantVersion` records the resulting assistant version. Conflicts leave the request pending. Rejection takes no configuration. Authorization, decision and resume event commit together; assistants cannot approve requests. See [authorization requests](file-tools.md#authorization-requests) for model proposal fields.
+
+`GET /api/sandboxes/{id}/programs` returns `{Programs, CheckedAt}`. Optional `command` is an exact command name (paths are rejected); `refresh=true` forces discovery. Program fields are `Name`, `Command`, `Category`, `Executable`, `ResolvedPath`, `Source` (`path|installation|system`), `Available` and `Reason`. Categories are `agent|containers|operations|system|other`; unavailable reasons are `not_executable|launcher_unsupported`. `Available` only indicates static launch-entry checks passed, not login or all runtime dependencies. Requires an owner principal, group Full Access scope for the node and deployment opt-in. Offline/denied nodes return errors, never local fallback. The endpoint uses the node demand-driven cache, not the general five-minute HTTP cache.

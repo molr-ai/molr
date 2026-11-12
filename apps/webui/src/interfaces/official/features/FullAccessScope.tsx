@@ -1,3 +1,4 @@
+import { HostProgramPicker } from './HostPrograms';
 import { CircleHelp, ShieldAlert, Terminal } from 'lucide-react';
 import './full-access-scope.css';
 import { Badge, Button, TextField, SegmentedControl } from '@molr/ui';
@@ -45,7 +46,7 @@ export function FullAccessScopeSummary({ value }: { value?: FullAccessScope }) {
   </div>;
 }
 
-export function FullAccessScopeEditor({ value, onChange }: { value?: FullAccessScope; onChange: (value: FullAccessScope) => void }) {
+export function FullAccessScopeEditor({ value, onChange, sandboxID }: { value?: FullAccessScope; onChange: (value: FullAccessScope) => void; sandboxID?: string }) {
   const { locale } = useCopy(), zh = locale === 'zh';
   const rules = value?.programs ?? [];
   const update = (index: number, patch: Partial<(typeof rules)[number]>) => onChange({ mode: 'programs', programs: rules.map((rule, i) => i === index ? { ...rule, ...patch } : rule) });
@@ -57,7 +58,8 @@ export function FullAccessScopeEditor({ value, onChange }: { value?: FullAccessS
     {value?.mode === 'programs' && <>
       <p className="muted">{zh ? '仅允许启动以下程序。程序及其子进程以服务账号运行，不受 Molr 沙盒限制。请使用可信且助理无法修改的程序；脚本、插件和配置也属于信任范围。' : 'Only these programs may be launched. They and their children run as the service account outside the Molr sandbox. Use trusted programs the assistant cannot modify; scripts, plugins and configuration are also trusted.'}</p>
       {rules.map((rule, index) => <div className="full-access-scope-editor" key={index}>
-        <TextField required label={zh ? `程序路径 ${index + 1}` : `Program path ${index + 1}`} value={rule.executable} onChange={e => update(index, { executable: e.target.value })} placeholder={zh ? '宿主机上的绝对路径' : 'Absolute path on the host'} />
+        <TextField className="full-access-program-input" required label={zh ? `程序路径 ${index + 1}` : `Program path ${index + 1}`} value={rule.executable} onChange={e => update(index, { executable: e.target.value })} placeholder={zh ? '宿主机上的绝对路径' : 'Absolute path on the host'}
+          trailingAction={sandboxID && <HostProgramPicker key={sandboxID} sandboxID={sandboxID} onSelect={program => update(index, { executable: program.Executable })} />} />
         <SegmentedControl size="sm" label={zh ? '参数范围' : 'Arguments'} value={rule.arguments} onValueChange={argumentsMode => update(index, { arguments: argumentsMode as 'exact' | 'any', args: [] })} options={[{ value: 'exact', label: zh ? '固定参数' : 'Exact arguments' }, { value: 'any', label: zh ? '任意参数' : 'Any arguments' }]} />
         {rule.arguments === 'exact' && <>
           <p className="muted">{zh ? '按顺序逐项匹配，保留空格和空参数。没有参数项表示仅允许无参数启动。' : 'Match each argument in order, preserving spaces and empty values. No entries permits only a launch without arguments.'}</p>

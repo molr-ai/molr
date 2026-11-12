@@ -1,0 +1,13 @@
+.host-programs { display: grid; gap: 12px; min-width: 0; font-size: var(--text-xs); line-height: 1.7; }
+.host-programs-heading h3, .host-programs-row summary strong { font-size: 13px; font-weight: 550; }
+.host-programs > small { font-size: 11px; }
+.host-programs-heading, .host-programs-row, .host-programs-search { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.host-programs-search { flex-wrap: wrap; align-items: end; }
+.host-programs-search > :first-child { flex: 1 1 200px; min-width: 0; }
+.host-programs-list { display: grid; }
+.host-programs-row { padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+.host-programs-row details { min-width: 0; flex: 1; }
+.host-programs-row summary { cursor: pointer; }
+.host-programs-row summary > * { margin-inline-end: 8px; }
+.host-programs-row > button { flex-shrink: 0; }
+.host-programs-path { display: block; overflow-wrap: anywhere; margin-block: 8px; font-size: var(--text-xs); }

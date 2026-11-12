@@ -263,3 +263,13 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 用户与助理共用同一 PTY 和任务记录。手动启动只接收计算资源与请求／窗口标识，由服务端构造绑定 owner/assistant 的私有 managedShell capability，沿用助理授权，不接收宿主挂载；Full Access 必须显式指定并通过独立授权。每个会话以同一互斥锁串行化输入和交接，锁内重查 generation、控制者登录会话、窗口和递增输入序号。接管不停止前台程序，已接受的字节不会回滚。
 
 交还以事务保存控制权、审计记录和 terminal_control_returned 事件。助理须在交接后的 generation 下读到最新输出，读屏许可绑定执行轮次。浏览器窗口关闭或认证失效只断开连接，不自动交还控制权；重新登录后可显式接管。输出流持续校验认证与助理归属，保留并发连接上限和写入超时。沙盒撤权及到期仍通过原执行计划终止进程，不受控制者影响。
+
+## 宿主程序发现
+
+`internal/platform/hostprograms` 按需检查服务 PATH 与常用安装位置中的已知命令；可按单个命令名补充查询。忽略相对／空 PATH 项、Runtime 私有目录与总工作区，并检查解析后的符号链接目标；同一命令的同一实际目标合并，不同安装保留独立入口。最多检查 64 个目录、返回 128 项，Node 版本目录只读取一层最多 32 项，扫描在文件检查之间检查取消与两秒截止时间。文件系统调用本身不提供强制中断保证。发现不执行候选程序，不加载 Shell 配置，不读取凭据。
+
+节点内按命令缓存最多 32 份快照，60 秒后在下次读取时刷新；显式刷新绕过有效期，重叠请求共享已完成扫描。环境变化清空缓存，无后台定时器或周期扫描。前端仅在宿主程序列表／选择器打开、用户查找或刷新时请求；切换节点取消旧请求，旧结果不会成为新节点的候选。
+
+本机与远程节点复用同一发现模块。远程经已认证的 `/v2/sandbox/programs` 接口查询；部署必须允许 Full Access。公开 API 限账号所有者，并检查用户组对目标节点的 Full Access 委派；模型不能读取完整安装目录。`permission_list` 只为已授权程序附加名称和调用指引，名称根据路径识别，不保证发行者真实性。选择器生成既有 `FullAccessScope`，不改变执行入口、参数匹配、一次性消费或撤权机制。Windows 仅 `.exe` 可选，不解析复杂启动器；无 Agent 专属会话适配。
+
+行为覆盖：`hostprograms.TestCatalogDiscoveryNeverExecutesAndKeepsInstallations`、`TestCatalogCacheIdleRefreshAndCancellation`，远程认证 `sandboxmanager.TestProgramsClientAuthenticatedRemoteDiscovery`，授权执行 `app.TestHostProgramsDiscoverAuthorizeExecuteAndRevoke`；界面选择和空闲请求预算见 `full-access-scope.spec.ts`。

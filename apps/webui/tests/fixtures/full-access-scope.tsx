@@ -6,4 +6,5 @@ import { ErrorToastProvider } from '../../src/error-toasts';
 import { GrantEditor } from '../../src/interfaces/official/features/GrantEditor';
 import type { Assistant, Resource } from '@molr/sdk';
 const resource: Resource = { ID: 'compute', Kind: 'compute', Name: 'Local compute', Provider: 'local-sandbox', State: 'available', Actions: ['execute'], Version: 1 };
-createRoot(document.getElementById('root')!).render(<LocaleProvider><SessionProvider><ErrorToastProvider><GrantEditor assistant={{ ID: 'assistant', Name: 'Scope test' } as Assistant} resources={[resource]} initialResource={resource} initialFullAccess onClose={() => {}} /></ErrorToastProvider></SessionProvider></LocaleProvider>);
+const resources = [resource, ...(new URLSearchParams(location.search).has('nodes') ? [{ ...resource, ID: 'remote-compute', SandboxID: 'remote', Name: 'Remote compute', Provider: 'remote-compute' }] : [])];
+createRoot(document.getElementById('root')!).render(<LocaleProvider><SessionProvider><ErrorToastProvider><GrantEditor assistant={{ ID: 'assistant', Name: 'Scope test' } as Assistant} resources={resources} initialResource={resource} initialFullAccess onClose={() => {}} /></ErrorToastProvider></SessionProvider></LocaleProvider>);

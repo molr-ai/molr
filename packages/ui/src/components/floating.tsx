@@ -5,7 +5,7 @@ import { getOverlayViewport, useModalScope } from '../modal-scope';
 
 export type FloatingTrigger = ReactElement<HTMLAttributes<HTMLElement> & { disabled?: boolean; ref?: Ref<HTMLElement> }>;
 export type FloatingSide = 'top' | 'bottom' | 'left' | 'right';
-export type FloatingOptions = { align?: 'start' | 'end'; width?: number | 'auto'; preferredSide?: FloatingSide; maxHeight?: number };
+export type FloatingOptions = { align?: 'start' | 'center' | 'end'; boundary?: 'modal' | 'viewport'; width?: number | 'auto'; preferredSide?: FloatingSide; maxHeight?: number };
 export function composeRefs(...refs: (Ref<HTMLElement> | undefined)[]) {
   return (element: HTMLElement | null) => {
     const cleanups = refs.map(ref => {
@@ -30,8 +30,9 @@ export function triggerElement(trigger: FloatingTrigger, ref: Ref<HTMLElement>, 
 
 const baseStyle: CSSProperties = { position: 'fixed', inset: 'auto', margin: 0, boxSizing: 'border-box' };
 
-export function useFloating(open: boolean, onOpenChange: (open: boolean) => void, { align = 'start', width = 280, preferredSide = 'bottom', maxHeight: heightLimit = 400 }: FloatingOptions = {}) {
-  const boundary = useModalScope()?.container;
+export function useFloating(open: boolean, onOpenChange: (open: boolean) => void, { align = 'start', boundary: boundaryMode = 'modal', width = 280, preferredSide = 'bottom', maxHeight: heightLimit = 400 }: FloatingOptions = {}) {
+  const modalBoundary = useModalScope()?.container;
+  const boundary = boundaryMode === 'viewport' ? undefined : modalBoundary;
   const changeRef = useRef(onOpenChange);
   useLayoutEffect(() => { changeRef.current = onOpenChange; }, [onOpenChange]);
   const anchorRef = useRef<HTMLElement>(null);
@@ -64,7 +65,8 @@ export function useFloating(open: boolean, onOpenChange: (open: boolean) => void
         nextSide = preferredSide === 'top' ? above >= desiredHeight || above > below ? 'top' : 'bottom' : below < desiredHeight && above > below ? 'top' : 'bottom';
         maxHeight = Math.max(0, Math.min(heightLimit, nextSide === 'top' ? above : below));
         top = Math.max(y + 8, nextSide === 'top' ? rect.top - Math.min(maxHeight, desiredHeight) - 6 : rect.bottom + 6);
-        left = Math.max(x + 8, Math.min(align === 'end' ? rect.right - actualWidth : rect.left, x + vw - actualWidth - 8));
+        const alignedLeft = align === 'center' ? rect.left + (rect.width - actualWidth) / 2 : align === 'end' ? rect.right - actualWidth : rect.left;
+        left = Math.max(x + 8, Math.min(alignedLeft, x + vw - actualWidth - 8));
       }
       const next: CSSProperties = { ...baseStyle, width: actualWidth, left, top, maxHeight };
       setStyle(previous => Object.keys(next).every(key => previous[key as keyof CSSProperties] === next[key as keyof CSSProperties]) ? previous : next);

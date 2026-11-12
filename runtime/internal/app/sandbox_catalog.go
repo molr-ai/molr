@@ -9,6 +9,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/platform/hostprograms"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
@@ -121,6 +122,22 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		usage, usageErr := s.quotaUsage(ctx, p, p.SubjectID, item.ResourceID)
 		if usageErr == nil {
 			item.Usage = &usage
+		}
+		if item.Kind == resource.Compute && info.Enabled && info.Capabilities.FullAccess && r.State == resource.Available {
+			for j := range item.Grants {
+				grant := &item.Grants[j]
+				if grant.Used != nil || !grant.Scope.FullAccess || grant.Scope.FullAccessScope == nil || grant.Scope.FullAccessScope.Mode != "programs" {
+					continue
+				}
+				for _, rule := range grant.Scope.FullAccessScope.Programs {
+					name, category := hostprograms.Describe(rule.Executable)
+					usage := "Use shell_execute with this resource's compute_id and sandbox_id, full_access:true, the exact executable and literal args allowed by this grant; omit script. Discovery does not verify login or dependencies. Use shell_task for background output and completion events, without polling."
+					if category == "agent" {
+						usage += " For coding agents, use their documented noninteractive mode for one-shot work or tty:true for interaction. Reuse the service account's existing configuration; do not disable the agent's approvals automatically. External model charges are outside Molr's model budget."
+					}
+					grant.Programs = append(grant.Programs, authorizedProgram{Executable: rule.Executable, Name: name, Category: category, Usage: usage})
+				}
+			}
 		}
 		if item.Kind == resource.Compute && info.Enabled && info.Capabilities.FullAccess && r.State == resource.Available {
 			item.FullAccess = s.adapters.policy.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, FullAccess: true, Destination: "/"}) == nil

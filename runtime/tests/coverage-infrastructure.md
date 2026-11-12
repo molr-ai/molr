@@ -405,3 +405,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform/sandbox` | `ObserveAuthorization` | `TestAuthorizationObserverIdleChangesExpiryAndFailures` |
 | `internal/sandboxmanager` | `Manager.Wait` | `TestWaitWakesOnCommittedResultAndChecksIdentity` |
 | `internal/shellsession` | `Manager.WatcherChanges` | `TestWatcherChangesRequireExactCapabilityAndPreserveWake` |
+
+| `internal/platform/hostprograms` | `New`, `Catalog.List` | `TestCatalogDiscoveryNeverExecutesAndKeepsInstallations`, `TestCatalogCacheIdleRefreshAndCancellation`, `TestCatalogSystemPathsAndDescriptions` |
+| `internal/platform/hostprograms` | `Describe` | `TestCatalogSystemPathsAndDescriptions` |
+| `internal/sandboxmanager` | `Client.Programs` | `TestProgramsClientAuthenticatedRemoteDiscovery` |

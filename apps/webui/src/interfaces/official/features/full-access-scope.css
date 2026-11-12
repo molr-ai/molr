@@ -1,4 +1,8 @@
 .full-access-summary, .full-access-programs { min-width: 0; font-size: var(--text-xs); line-height: 1.65; }
+.full-access-program-input .text-field__control { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: stretch; gap: 8px; }
+.full-access-program-input .text-field__control > .input { padding-right: 12px; }
+.full-access-program-input .text-field__action { position: static; min-width: 0; }
+.full-access-program-input .host-program-picker { width: 44px; min-height: 44px; height: 100%; padding: 0; }
 .full-access-summary { display: grid; gap: 6px; padding: 12px; border-radius: var(--radius-control); background: var(--color-surface); }
 .full-access-summary__heading { display: flex; align-items: center; gap: 8px; }
 .full-access-summary__heading svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--color-text-muted); }

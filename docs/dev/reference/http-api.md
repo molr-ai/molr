@@ -140,6 +140,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/sandbox` |
 | GET | `/api/sandboxes` |
 | GET | `/api/sandboxes/{id}/resources` |
+| GET | `/api/sandboxes/{id}/programs` |
 | GET | `/api/schedules` |
 | GET | `/api/schedules/{id}` |
 | GET | `/api/search` |
@@ -696,3 +697,5 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 模型工具新增 assistant_list、assistant_hire、assistant_dismiss。conversation_publish 可使用 receiver={Type,ID} 自动打开直接会话，或通过 conversation_id 回复；两者同时指定时须一致。消息返回 Sender、SenderID、Receiver 和 Origin，群聊接收者尚不支持。
 
 `POST /api/permission-requests/resolve` 也支持任务委派审批：提交 `RequestID`、`Decision`、`Mutation`，批准时额外提供当前 `AssistantVersion`、`ExpiresAt` 以及 `Hiring={max_assistants,budget,grant_ids}` 或 `Communication={all_assistants,assistant_ids}`。字段由原申请类型确定，不接受资源授权字段。返回 `ApprovedDelegation` 保存实际配置，`ApprovedAssistantVersion` 为批准后的助理版本；版本冲突保持申请待处理。拒绝不提交配置。授权修改、决定与恢复事件同事务提交；用户审批权限不开放给助理。模型提案契约见[授权请求](file-tools.md#授权请求)。
+
+`GET /api/sandboxes/{id}/programs` 返回 `{Programs, CheckedAt}`。可选查询参数 `command` 为完整命令名（不接受路径），`refresh=true` 强制重新检测。程序字段为 `Name`、`Command`、`Category`、`Executable`、`ResolvedPath`、`Source`（`path|installation|system`）、`Available`、`Reason`；类别为 `agent|containers|operations|system|other`，不可用原因为 `not_executable|launcher_unsupported`。`Available` 仅表示文件通过静态启动入口检查；不验证登录与全部运行依赖。API 要求账号所有者身份、目标节点 Full Access 用户组范围和部署开关；离线／拒绝返回错误，不回退本机。该接口使用节点内按需缓存，不进入通用五分钟 HTTP 缓存。

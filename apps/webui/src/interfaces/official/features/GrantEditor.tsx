@@ -39,7 +39,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   const node=sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info;
   useEffect(()=>{ if(usesNetworkToggle(node?.Capabilities.NetworkBackend)) {setConstraints(c=>constraintsForNode(target.kind,c,node));setTemporary(v=>{if(!v)return v;const limits=constraintsForNode(target.kind,v.limits,node);return limits?{...v,limits}:undefined;});} },[node?.Capabilities.NetworkBackend,target.kind,target.resourceID]);
   function select(next: PermissionTarget) {
-    if (next.resourceID !== current.resourceID || next.fullAccess !== current.fullAccess) {
+    if (next.resourceID !== current.resourceID || next.sandboxID !== current.sandboxID || next.fullAccess !== current.fullAccess) {
       const resource = resources.find(r => r.ID === next.resourceID);
       setFullScope(undefined); setOnce(false);
       if (next.fullAccess && !expires) setExpires(new Date(Date.now() + 86400000).toISOString());
@@ -59,7 +59,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   }}>
     {!assistant && <Select label={copy.assistant} disabled={!!grant} value={assistantID} onValueChange={setAssistantID} options={(assistants ?? []).map(a => ({ value: a.ID, label: a.Name }))} />}
     {!workspaceCapacity && <PermissionTargetFields value={current} onChange={select} resources={resources} models={models.data ?? []} sandboxes={sandboxes.data ?? []} lockedResource={!!grant} sandboxOnly={!!initialResource} />}
-    {target.fullAccess && <FullAccessScopeEditor value={fullScope} onChange={setFullScope} />}
+    {target.fullAccess && <FullAccessScopeEditor sandboxID={target.sandboxID} value={fullScope} onChange={setFullScope} />}
     {!target.fullAccess && <>
       {!workspaceCapacity && <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />}
       {target.kind === 'storage' && !workspaceCapacity && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}

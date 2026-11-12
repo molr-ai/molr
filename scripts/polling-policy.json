@@ -284,6 +284,15 @@
       ]
     },
     {
+      "file": "apps/webui/src/interfaces/official/features/HostPrograms.tsx",
+      "reason": "A single input debounce coalesces host command lookup; discovery remains request-driven.",
+      "budget": "One request after 250ms without edits; no recurring or idle calls. Invalid text and IME composition make no requests. Superseded requests are aborted; edits and unmount cancel the timer. Clearing restores common programs immediately.",
+      "tests": ["apps/webui/tests/full-access-scope.spec.ts"],
+      "sites": [
+        {"scope": "HostPrograms", "api": "setTimeout", "delay": "250", "loops": 0}
+      ]
+    },
+    {
       "file": "apps/webui/src/interfaces/official/features/Search.tsx",
       "reason": "Search text input is debounced before a request.",
       "budget": "One 250ms delay per input burst; cancel superseded/unmounted searches.",

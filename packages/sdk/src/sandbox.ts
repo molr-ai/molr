@@ -1,4 +1,6 @@
 export type SandboxKind = 'storage' | 'compute' | 'network';
+export type HostProgram = { Name: string; Command: string; Category: string; Executable: string; ResolvedPath: string; Source: string; Available: boolean; Reason: string };
+export type HostPrograms = { Programs: HostProgram[]; CheckedAt: string };
 export type SandboxNetworkTarget = { Protocols: string[]; Addresses: string[]; Ports: string[]; ExcludeAddresses?: string[]; ExcludePorts?: string[] };
 export type GPUDevice = { UtilizationPercent?: number | null; MemoryUsedBytes?: number | null; ID: string; Name: string; Vendor: string; MemoryBytes: number; Available: boolean; Reason: string };
 export type SandboxInfo = {

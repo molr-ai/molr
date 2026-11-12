@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useUILocale } from '../locale';
 import { triggerElement, useComposedRefs, useFloating } from './floating';
-import type { FloatingSide, FloatingTrigger } from './floating';
+import type { FloatingOptions, FloatingSide, FloatingTrigger } from './floating';
 import { UIIcon } from './icons';
 import { Dialog } from './Dialog';
 import { useModalScope } from '../modal-scope';
@@ -49,8 +49,8 @@ function FloatingPopover({ trigger, title, children, align, maxHeight, width = 3
   </>;
 }
 
-export type TooltipProps = { children: FloatingTrigger; content: ReactNode; delay?: number; side?: FloatingSide; width?: number | 'auto'; openOnClick?: boolean };
-export function Tooltip({ children, content, delay = 400, side: preferredSide = 'top', width = 220, openOnClick = false }: TooltipProps) {
+export type TooltipProps = { children: FloatingTrigger; content: ReactNode; delay?: number; side?: FloatingSide; align?: FloatingOptions['align']; boundary?: FloatingOptions['boundary']; width?: number | 'auto'; openOnClick?: boolean };
+export function Tooltip({ children, content, delay = 400, side: preferredSide = 'top', align = 'start', boundary = 'modal', width = 220, openOnClick = false }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,7 +59,7 @@ export function Tooltip({ children, content, delay = 400, side: preferredSide = 
   const pinned = useRef(false);
   const suspendedAt = useRef<number | null>(null);
   const awaitingInteraction = () => suspendedAt.current === tooltipInputVersion();
-  const { anchorRef, panelRef, style, side } = useFloating(open, setOpen, { width, preferredSide });
+  const { anchorRef, panelRef, style, side } = useFloating(open, setOpen, { width, preferredSide, align, boundary });
   const triggerRef = useComposedRefs(anchorRef, children.props.ref);
   function cancel() { if (timer.current) clearTimeout(timer.current); timer.current = null; }
   const active = tooltipDocumentActive;
