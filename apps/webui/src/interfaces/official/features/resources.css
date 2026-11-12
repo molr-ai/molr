@@ -90,6 +90,11 @@
 .sandbox-heading p { margin: 5px 0 0; color: var(--color-text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sandbox-heading-actions, .sandbox-row-actions, .sandbox-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sandbox-heading-actions { flex-shrink: 0; gap: 2px; }
+.sandbox-refresh[aria-busy='true'] > svg { animation: ui-spin 800ms linear infinite; }
+[data-reduced-motion='true'] .sandbox-refresh > svg { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sandbox-refresh[aria-busy='true'] > svg { animation: none; }
+}
 .sandbox-status { gap: 6px; }
 .sandbox-section { display: flex; flex-direction: column; gap: 20px; }
 .sandbox-section-heading { flex-wrap: wrap; }

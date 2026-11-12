@@ -107,7 +107,7 @@ export function Sandboxes({ resources, resourceID = '', connecting, onConnecting
       </aside>
       {sandbox && <div className="sandbox-detail" hidden={!detailVisible}>
         <div className="sandbox-overview"><header className="sandbox-heading"><div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
-          <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} loading={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
+          <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} className="sandbox-refresh" disabled={check.busy || query.loading} aria-busy={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
         </header>
         <div className="sandbox-overview-meta"><div className="sandbox-capabilities">
           <span data-ready={enabled && sandbox.Info.Storage}><HardDrive size={14} />{enabled && sandbox.Info.Storage ? copy.storageReady : copy.storageUnavailable}</span>

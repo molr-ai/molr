@@ -8,7 +8,7 @@ export type ButtonProps = ComponentPropsWithRef<'button'> & {
 };
 
 export function Button({ variant = 'primary', size = 'md', className = '', type = 'button', loading = false, children, ...props }: ButtonProps) {
-  return <button type={type} className={`button button--${variant} button--${size} ${className}`} {...props} disabled={props.disabled || loading} aria-busy={loading || undefined}>{loading && <span className="ui-spinner" aria-hidden="true" />}{children}</button>;
+  return <button type={type} className={`button button--${variant} button--${size} ${className}`} {...props} disabled={props.disabled || loading} aria-busy={loading || props['aria-busy'] || undefined}>{loading && <span className="ui-spinner" aria-hidden="true" />}{children}</button>;
 }
 
 export function IconButton({ label, className = '', ...props }: ButtonProps & { label: string }) {
