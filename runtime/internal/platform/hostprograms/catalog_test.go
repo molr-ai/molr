@@ -27,6 +27,17 @@ func writeProgram(t *testing.T, dir, command string, mode os.FileMode) string {
 }
 func TestCatalogDiscoveryNeverExecutesAndKeepsInstallations(t *testing.T) {
 	first, second, private := t.TempDir(), t.TempDir(), t.TempDir()
+	resolvedFirst, err := filepath.EvalSymlinks(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" {
+		alias := filepath.Join(t.TempDir(), "bin")
+		if err := os.Symlink(resolvedFirst, alias); err != nil {
+			t.Fatal(err)
+		}
+		first = alias
+	}
 	c := New([]string{private})
 	c.directories = func() []searchDirectory {
 		return []searchDirectory{{".", "path"}, {first, "path"}, {second, "installation"}, {private, "path"}, {first, "path"}}
@@ -68,7 +79,7 @@ func TestCatalogDiscoveryNeverExecutesAndKeepsInstallations(t *testing.T) {
 			if p.Command == "kubectl" && (p.Available || p.Reason != "not_executable") {
 				t.Fatal(p)
 			}
-			if p.Command == "terraform" && (p.ResolvedPath != filepath.Join(first, "codex") || p.Executable != filepath.Join(first, "terraform")) {
+			if p.Command == "terraform" && (p.ResolvedPath != filepath.Join(resolvedFirst, "codex") || p.Executable != filepath.Join(first, "terraform")) {
 				t.Fatal(p)
 			}
 		}
