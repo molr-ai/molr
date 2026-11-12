@@ -27,6 +27,8 @@ async function settingsTabs(page: Page) {
   await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
   const shell = page.locator('.interface-preview.ip-shell:visible');
   await shell.getByRole('navigation', { name: 'Workspace navigation' }).getByRole('button', { name: 'Settings', exact: true }).click();
+  // Navigation focuses the heading on the next frame; let it finish before taking tab focus.
+  await expect(shell.getByRole('heading', { name: 'Settings', exact: true })).toBeFocused();
   const tabs = shell.getByRole('tablist', { name: 'Settings sections' });
   await tabs.evaluate(el => { el.style.width = '200px'; });
   return tabs;
