@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { chooseOption } from './select-helpers';
 import { selectAssistant } from './interface-helpers';
 

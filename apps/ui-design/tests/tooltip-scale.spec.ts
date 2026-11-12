@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('closed tooltips share document input work and clean up on remount', async ({ page }) => {
   await page.addInitScript(() => {

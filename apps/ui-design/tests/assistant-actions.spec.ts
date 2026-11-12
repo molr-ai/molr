@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { assistantList, selectAssistant } from './interface-helpers';
 
 test.beforeEach(async ({ page }) => {

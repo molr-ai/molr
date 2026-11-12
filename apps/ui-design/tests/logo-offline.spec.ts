@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('first loading, replay and recovery animate without a reachable asset server', async ({ page, context }) => {
   await page.addInitScript(() => localStorage.setItem('molr-ui-design-locale', 'en'));

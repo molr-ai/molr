@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './fixtures';
 
 async function settled(list: Locator) {
   await expect.poll(() => list.evaluate(el => el.getAnimations({ subtree: true }).length)).toBe(0);

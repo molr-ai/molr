@@ -1,5 +1,5 @@
 import { readLayout } from '../../../scripts/test-support/layout.ts';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 
 test.use({ hasTouch: true });

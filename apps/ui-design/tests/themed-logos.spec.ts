@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { designBrandColors } from '../src/design-brand';
 import { chooseOption } from './select-helpers';
 

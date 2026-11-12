@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 for (const shape of ['Rounded', 'Square'] as const) {
 test(`${shape} app icons download real PNGs at every advertised size`, async ({ page }, info) => {

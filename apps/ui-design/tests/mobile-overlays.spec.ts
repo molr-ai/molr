@@ -1,13 +1,10 @@
 import { readLayout } from '../../../scripts/test-support/layout.ts';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { selectAssistant } from './interface-helpers';
 
 async function preview(page: Page) {
   await page.goto('/#interfaces');
-  // Native focus scrolling can move pointer targets between down/up events.
-  // Keep page navigation instant while preserving the sheets' own animations.
-  await page.addStyleTag({ content: 'html { scroll-behavior: auto !important; }' });
   await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
   const shell = page.locator('.interface-preview.ip-shell--mobile:visible');
   await shell.scrollIntoViewIfNeeded();

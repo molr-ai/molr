@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './fixtures';
 
 declare global {interface Window {logoClockProbe:{visibility:DocumentVisibilityState;wakeups:number;listeners:Set<EventListenerOrEventListenerObject>}}}
 async function visibility(page:import('@playwright/test').Page,value:DocumentVisibilityState){

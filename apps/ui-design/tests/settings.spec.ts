@@ -1,5 +1,5 @@
 import { readLayout } from '../../../scripts/test-support/layout.ts';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 test.beforeEach(async ({ page }) => { await page.goto('/#interfaces'); await page.evaluate(() => { localStorage.removeItem('molr-assistant-prototype-v1'); localStorage.setItem('molr-ui-design-locale', 'en'); }); await page.reload(); });
 
 test('settings owns memory, preferences and usage; section changes preserve drafts', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 type TransitionWindow = typeof window & {
   themeAnimation: Promise<{ theme: string | undefined; clip: string; name: string; radius: string; diagonal: number }>;

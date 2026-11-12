@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { chooseOption } from './select-helpers';
 
 for (const persistence of ['available', 'blocked']) {

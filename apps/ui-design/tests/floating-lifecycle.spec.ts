@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // Count only the platform resources shared by the floating lifecycle helpers.
 test.beforeEach(async ({ page }) => {

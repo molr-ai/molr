@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 for (const browser of [false, true]) {
   test(`${browser ? 'browser' : 'App'} navigation remains clickable while a tooltip is open`, async ({ page }, info) => {

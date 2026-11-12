@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 for (const kind of ['wordmark', 'mark']) {
   test(`${kind} logo animations keep the finalized pose and fit their canvas`, async ({ page }) => {

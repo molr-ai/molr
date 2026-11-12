@@ -1,5 +1,5 @@
 import { readLayout } from '../../../scripts/test-support/layout.ts';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => { if (!localStorage.getItem('molr-ui-design-locale')) localStorage.setItem('molr-ui-design-locale', 'en'); });

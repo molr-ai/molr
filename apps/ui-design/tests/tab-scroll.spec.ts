@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 
 async function metrics(tabs: Locator) {

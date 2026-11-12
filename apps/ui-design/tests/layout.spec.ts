@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 
 test('related layout rectangles retain their offsets during scrolling and expose real misalignment', async ({ page }) => {

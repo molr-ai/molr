@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Locator } from '@playwright/test';
 
 async function freezeMotion(drawer: Locator, progress = 0.5) {

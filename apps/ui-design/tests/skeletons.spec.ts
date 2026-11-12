@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('skeleton gallery shares neutral theme colors and replaces placeholders in place', async ({ page }) => {
   await page.goto('/#components');

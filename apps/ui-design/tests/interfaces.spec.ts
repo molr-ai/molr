@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import type { Page, Locator } from '@playwright/test';
 import { assistantList, selectAssistant } from './interface-helpers';
 async function panel(page: Page, name = 'Web') { await page.locator('#interfaces').getByRole('tab', { name, exact: true }).click(); return page.locator('#interfaces').getByRole('tabpanel').first().locator(':scope > div:not([hidden])'); }

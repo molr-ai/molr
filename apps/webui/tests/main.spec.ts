@@ -67,6 +67,8 @@ const resourceCategory = (page: Page, name: string) => page.getByRole('tab', { n
 async function openProviderModels(row: Locator) {
   await row.waitFor({ state: 'attached' });
   if (await row.isVisible()) await row.click();
+  // Wait for selection to commit before another action can click the disappearing mobile row.
+  await expect(row).toHaveAttribute('aria-current', 'page');
 }
 async function login(page: Page) {
   await page.goto('/');
