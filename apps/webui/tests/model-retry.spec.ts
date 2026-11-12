@@ -87,6 +87,8 @@ test('workbench retains each real retry request, response, timing and final outc
  await inspector.getByRole('button',{name:'Close',exact:true}).click();
  await timeline.locator('.trajectory-run-bar .trajectory-fold').last().click();
  await expect(models).toHaveCount(0);
+ // Short calls can overlap on the time axis; event spacing keeps each retry selectable.
+ await page.getByRole('button',{name:'Event axis',exact:true}).click();
  await page.locator('.trajectory-time-bar--model').nth(assistant.birthModelCount + 2).click();
  await expect(models.nth(2)).toContainText('Retry 2/3');
  await expect(inspector.getByTestId('model-retry-details')).toContainText('3/4');
