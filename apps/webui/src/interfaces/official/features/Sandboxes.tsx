@@ -107,7 +107,7 @@ export function Sandboxes({ resources, resourceID = '', connecting, onConnecting
       </aside>
       {sandbox && <div className="sandbox-detail" hidden={!detailVisible}>
         <div className="sandbox-overview"><header className="sandbox-heading"><div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
-          <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} className="sandbox-refresh" disabled={check.busy || query.loading} aria-busy={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
+          <div className="sandbox-heading-actions"><SandboxRefreshButton key={sandbox.ID} label={copy.testAgain} busy={check.busy || query.loading} onClick={refresh} /><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
         </header>
         <div className="sandbox-overview-meta"><div className="sandbox-capabilities">
           <span data-ready={enabled && sandbox.Info.Storage}><HardDrive size={14} />{enabled && sandbox.Info.Storage ? copy.storageReady : copy.storageUnavailable}</span>
@@ -143,6 +143,27 @@ export function Sandboxes({ resources, resourceID = '', connecting, onConnecting
     <ModalPresence>{renaming && <RenameSandboxResource resource={renaming} onClose={() => setRenaming(null)} />}</ModalPresence>
     <ModalPresence>{access && <SandboxAccess resources={resources} fullAccess={kind === 'full_access'} resource={resources.find(item => item.ID === access.ID) ?? access} canGrant={enabled && (kind === 'full_access' ? !!sandbox?.Info.Capabilities.FullAccess : kind !== 'compute' || computeReady) && (resources.find(item => item.ID === access.ID) ?? access).State === 'available'} onClose={() => setAccess(null)} />}</ModalPresence>
   </div>;
+}
+function SandboxRefreshButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
+  const icon = useRef<SVGSVGElement | null>(null);
+  const [spinning, setSpinning] = useState(false);
+  useEffect(() => {
+    const animation = icon.current?.getAnimations()[0];
+    if (!animation?.effect) { setSpinning(false); return; }
+    if (busy) {
+      setSpinning(true);
+      animation.effect.updateTiming({ iterations: Infinity });
+      return;
+    }
+    // Stop at the next complete revolution, preserving the current angle and speed.
+    const duration = Number(animation.effect.getTiming().duration);
+    animation.effect.updateTiming({ iterations: Math.max(1, Math.ceil(Number(animation.currentTime) / duration)) });
+    let cancelled = false;
+    const finish = () => { if (!cancelled) setSpinning(false); };
+    void animation.finished.then(finish, finish);
+    return () => { cancelled = true; };
+  }, [busy]);
+  return <IconButton label={label} className="sandbox-refresh" disabled={busy} aria-busy={busy} data-spinning={busy || spinning} onClick={onClick}><RefreshCw ref={icon} size={17} /></IconButton>;
 }
 function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sandbox: SandboxView; resources: Resource[]; grants: Grant[]; ready: boolean; onAccess: (resource: Resource) => void }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), zh = locale === 'zh';
