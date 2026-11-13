@@ -113,11 +113,12 @@ test('reduced motion, mobile, disabled and idle lists retain their behavior', as
   const unmounted = await reads(); await page.clock.fastForward(10_000); expect(await reads()).toBe(unmounted);
 });
 
-test('menus use primary, list backgrounds use the theme canvas, and hover uses active text colors without moving the background in all palettes and modes', async ({ page }) => {
-  await page.goto('/tests/fixtures/sliding-highlight.html?colors');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  const assistant = page.locator('.assistant-list'), settings = page.locator('.settings-nav'), sandbox = page.locator('.sandbox-list');
-  for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const theme of ['light', 'dark']) {
+// Each palette/mode gets an isolated page and the normal per-test timeout.
+for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const theme of ['light', 'dark']) {
+  test(`menus use primary, list backgrounds use the theme canvas, and hover uses active text colors without moving the background (${palette}/${theme})`, async ({ page }) => {
+    await page.goto('/tests/fixtures/sliding-highlight.html?colors');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const assistant = page.locator('.assistant-list'), settings = page.locator('.settings-nav'), sandbox = page.locator('.sandbox-list');
     await page.evaluate(({ palette, theme }) => { document.documentElement.dataset.palette = palette; document.documentElement.dataset.theme = theme; }, { palette, theme });
     await settled(assistant); await settled(settings);
     const beforeAssistant = await foregrounds(assistant), beforeSettings = await foregrounds(settings);
@@ -175,8 +176,8 @@ test('menus use primary, list backgrounds use the theme canvas, and hover uses a
     await page.locator('[data-assistant-id="one"]').click();
     await settings.locator('[data-sliding-item="general"]').click();
     await page.mouse.move(900, 700); await settled(assistant); await settled(settings);
-  }
-});
+  });
+}
 
 
 test('settings highlight follows selection and ignores hover', async ({ page }) => {
