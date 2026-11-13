@@ -78,7 +78,9 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 
 GitHub Releases 必须公开可下载。建议启用 immutable releases，并对正式版本 tag 设置创建权限与更新／删除保护。workflow 只在发布任务授予 `contents: write`，PR 检查不接触部署 secret。环境审批是否开启由仓库维护者决定。
 
-PR、main push 和手动触发统一使用 `ci.yml`：通用检查运行一次；`native-build.yml` 覆盖 Linux AMD64／ARM64、macOS AMD64／ARM64 和 Windows AMD64。浏览器验证固定为 Linux AMD64（`ubuntu-24.04`）与 macOS ARM64（`macos-15`）。各平台将桌面和手机项目拆为独立任务；WebUI 任务各使用独立 Runtime 与数据；官网测试在各平台桌面任务执行一次，UI Design 覆盖两个项目；Linux 的完整 WebUI 桌面／手机套件各拆为四个按测试用例均分的独立任务，每片使用独立 Runtime、数据和委派沙盒服务，片内保持单 worker。WebUI 分片与官网／UI Design 并行；MCP、插件 HTTP 专项及共享生产构建的懒加载测试另按视口组成独立任务。每片保留 JSON 耗时报告，失败诊断名称包含视口与分片编号；分片覆盖检查保证所有用例恰好执行一次，最终门禁要求所有分片与专项任务成功。GPU 用例需要显式配置 GPU 硬件；平台或专项条件导致的跳过不计为对应能力验收通过。所有必需任务通过后，最终检查 `CI passed v3` 才成功，可将其配置为分支保护的必需检查。PR 的新提交可取消旧验证；main 不按分支取消旧 commit 的 CI。
+PR 和手动触发统一使用 `ci.yml`；`main` 推送不自动重复运行完整 CI。合并前应将 PR 分支更新到最新 `main` 并通过 CI，后续更新分支时重新验证。PR 固定保留 Linux AMD64 的源码检查、前端构建、Runtime 全套测试与 `go vet`、桌面单元测试和 Electron 运行测试，以及完整的桌面／手机浏览器业务测试；跳过桌面安装包打包、成品验证和独立 Runtime 安装验收。macOS、Windows 和 ARM64 的原生问题可能到 Nightly 或发布前才发现，涉及这些平台的修改应提前完成对应平台验收。
+
+手动触发（含发布门禁补跑）执行完整 CI。通用检查运行一次；`native-build.yml` 覆盖 Linux AMD64／ARM64、macOS AMD64／ARM64 和 Windows AMD64。完整 CI 的浏览器验证为 Linux AMD64（`ubuntu-24.04`）与 macOS ARM64（`macos-15`）。各平台将桌面和手机项目拆为独立任务；WebUI 任务各使用独立 Runtime 与数据；官网测试在各平台桌面任务执行一次，UI Design 覆盖两个项目；Linux 的完整 WebUI 桌面／手机套件各拆为四个按测试用例均分的独立任务，每片使用独立 Runtime、数据和委派沙盒服务，片内保持单 worker。WebUI 分片与官网／UI Design 并行；MCP、插件 HTTP 专项及共享生产构建的懒加载测试另按视口组成独立任务。每片保留 JSON 耗时报告，失败诊断名称包含视口与分片编号；分片覆盖检查保证所有用例恰好执行一次，最终门禁要求所有分片与专项任务成功。GPU 用例需要显式配置 GPU 硬件；平台或专项条件导致的跳过不计为对应能力验收通过。PR 所需任务全部成功且安装组按计划跳过时，`PR checks passed` 才通过；完整 CI 的所有任务必须成功，才能通过 `CI passed v3` 并生成 `ci-validation` 凭据。分支保护的必需检查使用 `PR checks passed`，原先要求 `CI passed v3` 的配置需同步更新。PR 的新提交可取消旧验证；手动触发的最终提交验证不随 main 分支更新取消。
 
 首次执行真实流水线后，以 Actions 原生 runner、Cloudflare 构建历史及公开下载验证确认远端接通。本地测试不代表已完成 macOS／Windows 原生验收、签名、公证或线上发布。
 
@@ -111,9 +113,9 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 ## CI 与构建复用
 
-发布准备阶段固定 commit 和版本。`ensure-ci.mjs` 查询当前仓库 `ci.yml` 的 main push 或 main 手动验证，要求 `CI v3 <SHA>` 标题、最新 run 的最新 attempt 成功，以及 `CI passed v3` 中 `Validated <SHA>` 步骤成功。手动 CI 可通过 `commit` 输入验证 main 历史内的完整 SHA；其 workflow `head_sha` 可能不同，发布门禁以实际检出并汇总的 SHA 为准。旧版 CI、PR merge commit、其他仓库和不完整验证不能复用。
+发布准备阶段固定 commit 和版本。`ensure-ci.mjs` 查询当前仓库 `ci.yml` 的 main 手动验证或已有的 main push 验证，要求 `CI v3 <SHA>` 标题、最新 run 的最新 attempt 成功，以及 `CI passed v3` 中 `Validated <SHA>` 步骤成功。手动 CI 可通过 `commit` 输入验证 main 历史内的完整 SHA；其 workflow `head_sha` 可能不同，发布门禁以实际检出并汇总的 SHA 为准。旧版 CI、PR 检查、其他仓库和不完整验证不能复用；PR 不生成完整验收凭据。
 
-已有成功结果直接进入发行构建；进行中的 CI 最多等待 120 分钟；没有记录时通过 `workflow_dispatch` 补跑统一 CI。失败、取消、超时或 API 查询失败均停止发行，不退回任意历史成功记录。发布入口需要 `actions: write` 用于补跑 CI，成功记录的链接和 attempt 写入运行摘要。手动补验可运行 `gh workflow run ci.yml --ref main -f commit=<完整SHA>`；随后重试发布门禁即可。
+已有成功结果直接进入发行构建；进行中的 CI 最多等待 120 分钟；没有可复用记录时通过 `workflow_dispatch` 补跑最终提交的完整 CI；即使 PR 检查已经通过，也必须完成此验证。失败、取消、超时或 API 查询失败均停止发行，不退回任意历史成功记录。发布入口需要 `actions: write` 用于补跑 CI，成功记录的链接和 attempt 写入运行摘要。手动补验可运行 `gh workflow run ci.yml --ref main -f commit=<完整SHA>`；随后重试发布门禁即可。
 
 `build-assets.yml` 每个版本只构建一次 WebUI 和桌面 JS／TS，记录 commit、版本、lockfile 摘要和完整输出文件摘要，归档供各平台下载。`MOLR_BUILD_ASSETS=1` 表示消费共享资源；身份、文件清单或摘要不一致立即失败，不能仅凭目录存在跳过构建。本地不设置该变量时，原有构建／打包命令仍自行构建所需前端资源。
 

@@ -14,6 +14,9 @@ on:
       validate:
         type: boolean
         default: false
+      package-desktop:
+        type: boolean
+        default: true
       matrix:
         required: true
         type: string
@@ -76,14 +79,14 @@ jobs:
           else
             xvfb-run -a npm run test:desktop:electron
           fi
-      - if: inputs.validate
+      - if: inputs.validate && inputs.package-desktop
         name: Package local evaluation installer
         run: npm run package:desktop
-      - if: inputs.validate && runner.os != 'Linux'
+      - if: inputs.validate && inputs.package-desktop && runner.os != 'Linux'
         name: Evaluate the packaged desktop and bundled Runtime
         timeout-minutes: 10
         run: node scripts/test-desktop-package.mjs
-      - if: inputs.validate && runner.os == 'Linux'
+      - if: inputs.validate && inputs.package-desktop && runner.os == 'Linux'
         name: Evaluate the packaged desktop and bundled Runtime
         timeout-minutes: 10
         run: |
@@ -123,7 +126,7 @@ jobs:
             runtime-payload.sha256
           if-no-files-found: error
           retention-days: 14
-      - if: inputs.validate
+      - if: inputs.validate && inputs.package-desktop
         uses: actions/upload-artifact@v7
         with:
           overwrite: true

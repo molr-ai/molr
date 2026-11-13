@@ -1,21 +1,25 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` runs CI on every pull request, pushes to `main`, and manual dispatch. It covers all platforms by default, with optional scope selection below. Source checks run once and WebUI/desktop application assets build once. Five native jobs download those assets, verify their version, commit, lockfile and content hashes, then build Runtime, test the desktop, package it and evaluate the final installer. Linux AMD64 and macOS ARM64 run browser tests; four separate jobs validate Unix Runtime installation. `Gitea CI passed` succeeds only when every selected group succeeds. Shared application assets, Runtime archives and desktop installers are retained for seven days.
+`.gitea/workflows/ci.yml` runs on pull requests and manual dispatch. PRs use Linux AMD64 only, retaining source checks, frontend builds, Runtime tests and `go vet`, desktop unit and Electron runtime tests, and desktop/mobile browser business tests. They skip desktop installer packaging, packaged application validation, and separate Runtime installation acceptance. Use `Gitea PR checks passed` as the required PR check.
+
+Manual runs cover all platforms by default, with optional scope selection below. Source checks run once and WebUI/desktop application assets build once. Selected native jobs download those assets, verify their version, commit, lockfile and content hashes, then build Runtime, test the desktop, package it and evaluate the final installer. Full coverage includes five native jobs, browser tests on Linux AMD64 and macOS ARM64, and four separate Unix Runtime installation jobs. `Gitea CI passed` succeeds only when every selected group succeeds. Generated application assets, Runtime archives and desktop installers are retained for seven days.
 
 The browser matrix separates desktop and mobile projects on each platform, with an independent Runtime and data per WebUI job. Both projects run UI Design; the website suite runs once per platform in the desktop job. Linux additionally runs the complete WebUI desktop/mobile suite with delegated sandbox services, separate MCP and plugin HTTP integrations, and lazy-loading tests against shared production assets. GPU cases require explicitly configured hardware. The browser group remains required whenever selected; failed assertions fail the final gate.
 
 Desktop acceptance is part of this workflow, with no PR path filters or separate `desktop.yml` entry point. The native matrix reuses `nativeBuildMatrix()`, filtering the selected platforms and translating runner names into the local labels below. Publication remains in `.github/workflows/`; its release gate still checks GitHub CI records.
 
+Pushes to `main` do not automatically repeat complete CI. Before merging, update the PR branch to the latest `main` and require CI to pass; validate again after further branch updates. The GitHub release gate validates the final commit and requests complete CI when no reusable record exists; see [CI and build reuse](../releasing/releases.md#ci-and-build-reuse).
+
 ## Select CI scope
 
-Configure defaults under repository **Settings → Actions → Variables**. Pull requests and pushes to `main` use these variables. Manual `Gitea CI` runs can override them with the inputs below; blank inputs inherit repository variables. Without configuration, CI validates all platforms.
+Configure manual-run defaults under repository **Settings → Actions → Variables**. Pull requests use the fixed reduced scope above and do not use these variables. Manual `Gitea CI` runs can override them with the inputs below; blank inputs inherit repository variables. Without configuration, manual runs validate all platforms.
 
 | Repository variable | Manual input | Values | Default |
 | --- | --- | --- | --- |
 | `MOLR_CI_PLATFORMS` | `platforms` | `all`, or a comma-separated list of `linux-amd64`, `linux-arm64`, `macos-amd64`, `macos-arm64`, `windows-amd64` | `all` |
 | `MOLR_CI_INSTALLERS` | `installers` | `enabled` / `disabled`, controlling separate Runtime installation acceptance | `enabled` |
 
-For a single Linux AMD64 build runner, set:
+For manual acceptance with a single Linux AMD64 build runner, set:
 
 ```text
 MOLR_CI_PLATFORMS=linux-amd64
@@ -101,6 +105,6 @@ Validate setup in this order:
 
 1. Manually dispatch `Gitea CI`, check the logged scope, and require source checks, shared asset compilation and all selected jobs to pass. For complete validation, explicitly enter `platforms=all` and `installers=enabled`: five native jobs, four browser jobs and four separate installation jobs must pass. Installation jobs cover both server and sandbox modes. A failed, cancelled or unexpectedly skipped selected job must fail the final gate.
 2. Verify that the selected final desktop installers pass extraction/installation, application startup and bundled Runtime lifecycle acceptance, and that corresponding `ci-desktop-*` artifacts and Unix `ci-runtime-*` archives can be downloaded. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
-3. Use an ordinary PR to verify automatic scope selection from repository variables without desktop path filters. For a single runner, verify that unselected platforms do not queue and separate installation is skipped as configured. Expand the variables and validate again when adding runners.
+3. Use an ordinary PR to verify the fixed Linux AMD64 scope: desktop and mobile business tests run, desktop packaging and packaged acceptance do not run, the separate installer group is skipped, and other platforms do not queue. Use `Gitea PR checks passed` for branch protection; update any existing requirement for `Gitea CI passed`.
 
 Syntax checks and local tests are not an actual Gitea acceptance run. During the first run, record server, runner and action mirror versions and verify artifact transfers. Keep logs and actual deployment configuration in private internal material.

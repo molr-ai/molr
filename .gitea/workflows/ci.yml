@@ -14,8 +14,6 @@ on:
         required: false
         default: ''
   pull_request:
-  push:
-    branches: [main]
 defaults:
   run:
     shell: bash
@@ -47,8 +45,8 @@ jobs:
           GH_TOKEN: ${{ secrets.MOLR_RELEASE_READ_TOKEN }}
       - id: identity
         env:
-          MOLR_CI_PLATFORMS: ${{ github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}
-          MOLR_CI_INSTALLERS: ${{ github.event.inputs.installers || vars.MOLR_CI_INSTALLERS || 'enabled' }}
+          MOLR_CI_PLATFORMS: ${{ github.event_name == 'pull_request' && 'linux-amd64' || github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}
+          MOLR_CI_INSTALLERS: ${{ github.event_name == 'pull_request' && 'disabled' || github.event.inputs.installers || vars.MOLR_CI_INSTALLERS || 'enabled' }}
         run: |
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           node scripts/gitea-ci-plan.mjs
@@ -152,13 +150,14 @@ jobs:
           else
             xvfb-run -a npm run test:desktop:electron
           fi
-      - name: Package local evaluation installer
+      - if: github.event_name != 'pull_request'
+        name: Package local evaluation installer
         run: npm run package:desktop
-      - if: runner.os != 'Linux'
+      - if: github.event_name != 'pull_request' && runner.os != 'Linux'
         name: Evaluate the packaged desktop and bundled Runtime
         timeout-minutes: 10
         run: node scripts/test-desktop-package.mjs
-      - if: runner.os == 'Linux'
+      - if: github.event_name != 'pull_request' && runner.os == 'Linux'
         name: Evaluate the packaged desktop and bundled Runtime
         timeout-minutes: 10
         run: |
@@ -184,7 +183,8 @@ jobs:
           path: dist/releases/*
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/gitea-upload-artifact@v7
+      - if: github.event_name != 'pull_request'
+        uses: actions/gitea-upload-artifact@v7
         with:
           overwrite: true
           name: ci-desktop-${{ matrix.os }}-${{ matrix.arch }}
@@ -325,7 +325,7 @@ jobs:
             MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs
           done
   passed:
-    name: Gitea CI passed
+    name: ${{ github.event_name == 'pull_request' && 'Gitea PR checks passed' || 'Gitea CI passed' }}
     needs: [source, assets, native, browser, installer]
     if: ${{ always() }}
     runs-on: molr-linux-amd64
