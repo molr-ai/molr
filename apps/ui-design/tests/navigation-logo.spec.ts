@@ -1,5 +1,22 @@
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 import { chooseOption } from './select-helpers';
+
+async function expectTheme(page: Page, theme: 'light' | 'dark') {
+  const pageLogo = page.locator('.site-header > .logo');
+  const marks = page.locator('.ip-nav > .ip-nav-logo, .mobile-assistant-toolbar > .assistant-toolbar-logo');
+  const variant = theme === 'dark' ? 'light' : 'dark';
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+  await expect(pageLogo).toHaveClass(new RegExp(`logo--${variant}`));
+  const visibleMarks = marks.filter({ visible: true });
+  await expect(visibleMarks).toHaveCount(1);
+  for (const logo of await visibleMarks.all()) {
+    const name = await logo.evaluate(el => el.classList.contains('assistant-toolbar-logo') ? 'wordmark' : 'mark');
+    await expect(logo).toHaveClass(new RegExp(`logo--${variant}`));
+    await expect(logo.locator('object')).toHaveAttribute('data', new RegExp(`molr-${name}${theme === 'dark' ? '-light' : ''}-(alive|playful)\\.svg`));
+    await expect(logo).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  }
+}
 
 for (const persistence of ['available', 'blocked']) {
   test(`manual appearance changes keep all logos in sync with storage ${persistence}`, async ({ page }) => {
@@ -13,48 +30,42 @@ for (const persistence of ['available', 'blocked']) {
     });
     await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
     await page.goto('/#interfaces');
-    const pageLogo = page.locator('.site-header > .logo');
     const appearance = page.getByRole('combobox', { name: 'Appearance', exact: true });
     const marks = page.locator('.ip-nav > .ip-nav-logo, .mobile-assistant-toolbar > .assistant-toolbar-logo');
     const switchPreview = (name: string) => page.locator('#interfaces').getByRole('tab', { name, exact: true }).click();
     await expect(marks).toHaveCount(1); // Mobile is mounted only on first visit.
-    async function expectTheme(theme: 'light' | 'dark') {
-      const variant = theme === 'dark' ? 'light' : 'dark';
-      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      await expect(pageLogo).toHaveClass(new RegExp(`logo--${variant}`));
-      const visibleMarks = marks.filter({ visible: true });
-      await expect(visibleMarks).toHaveCount(1);
-      for (const logo of await visibleMarks.all()) {
-        const name = await logo.evaluate(el => el.classList.contains('assistant-toolbar-logo') ? 'wordmark' : 'mark');
-        await expect(logo).toHaveClass(new RegExp(`logo--${variant}`));
-        await expect(logo.locator('object')).toHaveAttribute('data', new RegExp(`molr-${name}${theme === 'dark' ? '-light' : ''}-(alive|playful)\\.svg`));
-        await expect(logo).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      }
-    }
-    await expectTheme('light');
+    await expectTheme(page, 'light');
     await chooseOption(appearance, 'Dark Dark surfaces with soft text');
-    await expectTheme('dark');
+    await expectTheme(page, 'dark');
     await switchPreview('Mobile');
     await expect(marks).toHaveCount(2);
-    await expectTheme('dark'); // First mount uses the latest preference.
+    await expectTheme(page, 'dark'); // First mount uses the latest preference.
     await page.emulateMedia({ colorScheme: 'dark' });
     await chooseOption(appearance, 'Light Light surfaces with clear text');
-    await expectTheme('light');
+    await expectTheme(page, 'light');
     await switchPreview('Web');
-    await expectTheme('light'); // Restored subscribers reconcile on reveal.
+    await expectTheme(page, 'light'); // Restored subscribers reconcile on reveal.
     await chooseOption(appearance, 'System Match your device appearance');
-    await expectTheme('dark');
+    await expectTheme(page, 'dark');
     await switchPreview('Mobile');
-    await expectTheme('dark');
+    await expectTheme(page, 'dark');
     await page.emulateMedia({ colorScheme: 'light' });
-    await expectTheme('light');
-    if (persistence === 'available') {
-      await chooseOption(appearance, 'Dark Dark surfaces with soft text');
-      await page.reload();
-      await expectTheme('dark');
-    }
+    await expectTheme(page, 'light');
   });
 }
+
+// Keep reload/persistence independent of the multi-step synchronization scenario.
+test('manual appearance survives reload and initializes newly mounted navigation logos', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('molr-ui-design-locale', 'en'));
+  await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
+  await page.goto('/#interfaces');
+  await chooseOption(page.getByRole('combobox', { name: 'Appearance', exact: true }), 'Dark Dark surfaces with soft text');
+  await expectTheme(page, 'dark');
+  await page.reload();
+  await expectTheme(page, 'dark');
+  await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
+  await expectTheme(page, 'dark');
+});
 
 for (const version of ['Web', 'Desktop', 'Mobile']) {
   test(`${version} navigation has an interactive daily logo and a reduced-motion fallback`, async ({ page }, info) => {
