@@ -2,7 +2,9 @@
 package molrdocs
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"io/fs"
 	"strings"
 )
@@ -15,8 +17,35 @@ const Root = "/molr"
 const SkillPath = Root + "/.agents/skills/molr-docs/SKILL.md"
 const directory = ".agents/skills/molr-docs"
 
-var Revision = strings.TrimSpace(mustRead("content/revision.txt"))
+// Compute once during package initialization; file tools and Skill contexts reuse it.
+var Revision = bundleRevision(content)
 var Skill = mustRead("content/SKILL.md")
+
+func bundleRevision(bundle fs.FS) string {
+	hash := sha256.New()
+	// WalkDir visits paths in lexical order, independent of generation order.
+	err := fs.WalkDir(bundle, "content", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		body, err := fs.ReadFile(bundle, name)
+		if err != nil {
+			return err
+		}
+		hash.Write([]byte(name))
+		hash.Write([]byte{0})
+		hash.Write(body)
+		hash.Write([]byte{0})
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
 
 func mustRead(name string) string {
 	b, err := content.ReadFile(name)

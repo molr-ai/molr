@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, realpathSync, statSync } from 'node:fs';
 import { resolve, dirname, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
 
 export function generateDocumentation(root, { check = false } = {}) {
   const output = resolve(root, 'runtime/internal/molrdocs/content');
@@ -41,13 +40,8 @@ export function generateDocumentation(root, { check = false } = {}) {
     files.set(`references/${source}`, body);
   }
   files.set('references/index.json', JSON.stringify(index, null, 2) + '\n');
-  const hash = createHash('sha256');
   const skill = readFileSync(resolve(root, 'runtime/internal/molrdocs/SKILL.md'), 'utf8');
-  hash.update(skill);
-  for (const [name, value] of files) hash.update(name).update('\0').update(value).update('\0');
-  const revision = hash.digest('hex');
-  files.set('SKILL.md', skill.replace('\n---\n', `\nmetadata:\n  bundle-revision: ${revision}\n---\n`));
-  files.set('revision.txt', revision + '\n');
+  files.set('SKILL.md', skill);
   function existing(dir, prefix = '') {
     return readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? existing(resolve(dir, e.name), prefix + e.name + '/') : [prefix + e.name]);
   }
@@ -64,10 +58,10 @@ export function generateDocumentation(root, { check = false } = {}) {
       writeFileSync(filename, value);
     }
   }
-  return { documents: index.length, revision, output: relative(root, output) };
+  return { documents: index.length, output: relative(root, output) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = generateDocumentation(resolve(dirname(fileURLToPath(import.meta.url)), '..'), { check: process.argv.includes('--check') });
-  console.log(`Molr docs: ${result.documents} documents, ${result.revision.slice(0, 12)} (${result.output})`);
+  console.log(`Molr docs: ${result.documents} documents (${result.output})`);
 }
