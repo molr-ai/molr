@@ -24,7 +24,7 @@ func TestCheckpointSaveIfChanged(t *testing.T) {
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	repo := &checkpoints{store: db, trace: trace}
 	ctx := trace.Begin(t.Context(), f.Owner.OwnerID, "assistant", f.Turn.Event.ID, f.Turn.Principal.ExecutionID, "user_message", 1, nil)
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now().UTC(), Context: json.RawMessage(`{"Inputs":[{"Role":"user","Text":"same"}],"Current":{"Step":0}}`)}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, Sequence: 1, SavedAt: time.Now().UTC(), Context: json.RawMessage(`{"Inputs":[{"Role":"user","Text":"same"}],"Current":{"Step":0}}`)}
 	saved, err := repo.SaveIfChanged(ctx, cp, 0)
 	testkit.RequireNoError(t, err)
 	if !saved {
@@ -209,7 +209,7 @@ func BenchmarkUnchangedCheckpoint(b *testing.B) {
 				repo := &checkpoints{store: db, trace: trace}
 				ctx := trace.Begin(b.Context(), "owner", "assistant", "event", "execution", "user_message", 1, nil)
 				raw, _ := json.Marshal(map[string]any{"Inputs": []model.Input{{Role: model.User, Text: strings.Repeat("x", size)}}})
-				cp := Checkpoint{OwnerID: "owner", AssistantID: "assistant", ExecutionID: "execution", LastEventID: "event", FormatVersion: 1, Sequence: 1, SavedAt: time.Now().UTC(), Context: raw}
+				cp := Checkpoint{OwnerID: "owner", AssistantID: "assistant", ExecutionID: "execution", LastEventID: "event", Sequence: 1, SavedAt: time.Now().UTC(), Context: raw}
 				if err := repo.Save(ctx, cp, 0); err != nil {
 					b.Fatal(err)
 				}

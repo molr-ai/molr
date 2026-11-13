@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"time"
@@ -89,12 +90,12 @@ func (s *Service) Begin(ctx context.Context, owner, id core.ID, version core.Ver
 			return err
 		}
 		now := time.Now().UTC()
-		if w.Version != version || w.Paused || w.State == "completed" || w.EndAt != nil && !now.Before(*w.EndAt) || w.StartAt != nil && now.Before(*w.StartAt) {
+		if w.Version != version || w.State != planstate.Active || w.RunState == "completed" || w.EndAt != nil && !now.Before(*w.EndAt) || w.StartAt != nil && now.Before(*w.StartAt) {
 			return core.NewError(core.FailedPrecondition, "watch is not runnable")
 		}
 		w.RunID = newID()
 		w.LastRunID = w.RunID
-		w.State = "starting"
+		w.RunState = "starting"
 		w.Reason = ""
 		w.LastHealthyAt = nil
 		w.RetryAt = nil
@@ -118,15 +119,15 @@ func (s *Service) Receive(ctx context.Context, owner, id, run core.ID, line []by
 			return err
 		}
 		now := time.Now().UTC()
-		if w.RunID != run || w.Paused || w.State == "completed" || w.EndAt != nil && !now.Before(*w.EndAt) {
+		if w.RunID != run || w.State != planstate.Active || w.RunState == "completed" || w.EndAt != nil && !now.Before(*w.EndAt) {
 			return core.NewError(core.Canceled, "watch execution superseded")
 		}
 		if m.Type == "ready" {
-			if w.State != "starting" {
+			if w.RunState != "starting" {
 				return protocolError()
 			}
-			w.State = "running"
-		} else if w.State != "running" {
+			w.RunState = "running"
+		} else if w.RunState != "running" {
 			return protocolError()
 		}
 		if m.Type == "event" {
@@ -167,7 +168,7 @@ func (s *Service) Receive(ctx context.Context, owner, id, run core.ID, line []by
 			w.FailureNotified = false
 		}
 		if m.Type == "complete" {
-			w.State = "completed"
+			w.RunState = "completed"
 		}
 		w.LastHealthyAt = &now
 		if err := tx.Put(ctx, Bucket, persistence.Key(owner, id), w); err != nil {
@@ -195,16 +196,16 @@ func (s *Service) End(ctx context.Context, owner, id, run core.ID, reason string
 		if err != nil {
 			return err
 		}
-		if w.RunID != run || w.Paused || w.State == "completed" {
+		if w.RunID != run || w.State != planstate.Active || w.RunState == "completed" {
 			return nil
 		}
 		now := time.Now().UTC()
 		w.RunID = ""
 		w.Failures++
 		w.Reason = reason
-		w.State = "blocked"
+		w.RunState = "blocked"
 		if w.EndAt != nil && !now.Before(*w.EndAt) {
-			w.State = "completed"
+			w.RunState = "completed"
 			w.Reason = "expired"
 			if err := tx.Put(ctx, Bucket, persistence.Key(owner, id), w); err != nil {
 				return err
@@ -214,7 +215,7 @@ func (s *Service) End(ctx context.Context, owner, id, run core.ID, reason string
 		if retry && w.Failures < 3 {
 			next := now.Add(time.Duration(1<<w.Failures) * 5 * time.Second)
 			w.RetryAt = &next
-			w.State = "retrying"
+			w.RunState = "retrying"
 		} else if !w.FailureNotified {
 			notify = true
 			w.FailureNotified = true

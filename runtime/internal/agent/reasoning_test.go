@@ -25,7 +25,7 @@ func TestIncompleteDeepSeekCheckpointStopsWithoutRequestOrBudgetHold(t *testing.
 	ctx := testkit.Context(t)
 	data, err := json.Marshal(struct{ Inputs []model.Input }{[]model.Input{{Role: model.Assistant, Text: "old response without continuation state"}}})
 	testkit.RequireNoError(t, err)
-	checkpoint := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: "previous", FormatVersion: 1, Sequence: 1, Context: data, LastEventID: "previous-event", SavedAt: time.Now()}
+	checkpoint := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: "previous", Sequence: 1, Context: data, LastEventID: "previous-event", SavedAt: time.Now()}
 	testkit.RequireNoError(t, f.Checkpoints.Save(ctx, checkpoint, 0))
 	_, err = f.Runtime.Handle(ctx, f.Turn)
 	testkit.RequireCode(t, err, core.FailedPrecondition)

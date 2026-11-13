@@ -101,10 +101,10 @@ func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
 	if _, err = manage("update", map[string]any{"plan_id": a.PlanID, "title": "stale", "expected_version": originalVersion}); core.CodeOf(err) != core.Conflict {
 		t.Fatalf("stale version accepted: %v", err)
 	}
-	_, err = manage("update", map[string]any{"plan_id": b.PlanID, "expected_version": b.Version, "title": "with dependency", "dependencies": []string{a.PlanID}, "handoff": "notify", "paused": true})
+	_, err = manage("update", map[string]any{"plan_id": b.PlanID, "expected_version": b.Version, "title": "with dependency", "dependencies": []string{a.PlanID}, "handoff": "notify", "state": "paused"})
 	need(t, err)
 	b = read(b.PlanID)
-	if !b.Paused || b.Title != "with dependency" || b.Instructions != "instructions" || len(b.Dependencies) != 1 {
+	if b.State != "paused" || b.Title != "with dependency" || b.Instructions != "instructions" || len(b.Dependencies) != 1 {
 		t.Fatalf("combined partial update=%+v", b)
 	}
 	// A relation failure must roll back the content update in the same call.
@@ -140,9 +140,13 @@ func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
 	if current.CurrentExecution == nil || current.CurrentExecution.Instructions != "changed\nnew instructions" || current.Instructions != "future instructions" {
 		t.Fatalf("lost execution snapshot: %s", snapshot)
 	}
-	if _, err = manage("delete", map[string]any{"plan_id": a.PlanID, "expected_version": current.Version}); core.CodeOf(err) != core.FailedPrecondition {
-		t.Fatalf("deleted execution history: %v", err)
+	if _, err = manage("delete", map[string]any{"plan_id": a.PlanID, "expected_version": current.Version}); err != nil {
+		t.Fatalf("could not delete executed plan: %v", err)
 	}
+	if _, err = adapter.execute(t.Context(), bound, "plan_read", input); err == nil {
+		t.Fatal("deleted execution still readable")
+	}
+
 	for _, name := range []string{"plan_create", "plan_update", "plan_delete", "plan_configure", "plan_execute"} {
 		if _, err := call(name, map[string]any{}); core.CodeOf(err) != core.NotFound {
 			t.Fatalf("legacy tool %s still registered", name)
@@ -168,15 +172,15 @@ func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
 	end := start.Add(time.Hour)
 	v := invoke(map[string]any{"action": "create", "mode": "todo", "title": "test", "instructions": "keep", "start_at": start, "end_at": end, "due_at": end})
 	initial := v.Version
-	v = invoke(map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": v.Version, "paused": true})
-	if v.Version == initial || !v.Paused || v.StartAt == nil || v.Instructions != "keep" {
+	v = invoke(map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": v.Version, "state": "paused"})
+	if v.Version == initial || v.State != "paused" || v.StartAt == nil || v.Instructions != "keep" {
 		t.Fatal("pause changed unrelated fields or did not invalidate version")
 	}
 	if _, err := call("plan_manage", map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": initial, "title": "stale after pause"}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("relation change did not invalidate content version")
 	}
-	v = invoke(map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": v.Version, "start_at": nil, "end_at": nil, "due_at": nil, "instructions": "", "dependencies": []string{}, "paused": false})
-	if v.StartAt != nil || v.EndAt != nil || v.DueAt != nil || v.Instructions != "" || v.Paused {
+	v = invoke(map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": v.Version, "start_at": nil, "end_at": nil, "due_at": nil, "instructions": "", "dependencies": []string{}, "state": "active"})
+	if v.StartAt != nil || v.EndAt != nil || v.DueAt != nil || v.Instructions != "" || v.State == "paused" {
 		t.Fatal("explicit clearing was ignored")
 	}
 	scheduled := invoke(map[string]any{"action": "create", "mode": "assistant_schedule", "title": "reminder", "instructions": "notify", "start_at": start, "timezone": "Asia/Shanghai", "recurrence": "FREQ=DAILY;COUNT=2"})
@@ -191,18 +195,18 @@ func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
 	readRaw, err := call("plan_read", map[string]any{"plan_id": scheduled.PlanID})
 	need(t, err)
 	need(t, json.Unmarshal(readRaw, &scheduled))
-	scheduled = invoke(map[string]any{"action": "update", "plan_id": scheduled.PlanID, "expected_version": scheduled.Version, "title": "renamed", "paused": true})
+	scheduled = invoke(map[string]any{"action": "update", "plan_id": scheduled.PlanID, "expected_version": scheduled.Version, "title": "renamed", "state": "paused"})
 	source, err = repo.Get(t.Context(), f.owner.OwnerID, scheduledID)
 	need(t, err)
 	if source.NextAt == nil || !source.NextAt.Equal(nextOccurrence) {
 		t.Fatal("content-only update rewound scheduled progress")
 	}
 
-	if scheduled.Title != "renamed" || !scheduled.Paused || scheduled.Recurrence != "FREQ=DAILY;COUNT=2" || scheduled.Instructions != "notify" || scheduled.StartAt == nil || !scheduled.StartAt.Equal(start) {
+	if scheduled.Title != "renamed" || scheduled.State != "paused" || scheduled.Recurrence != "FREQ=DAILY;COUNT=2" || scheduled.Instructions != "notify" || scheduled.StartAt == nil || !scheduled.StartAt.Equal(start) {
 		t.Fatalf("partial scheduled update=%+v", scheduled)
 	}
 	// Both old storage revisions participate in the one public version token.
-	_, err = f.b.Services.Plans.Configure(t.Context(), f.owner, plan.ConfigureRequest{Ref: core.Object{Kind: "schedule", ID: core.ID(strings.TrimPrefix(scheduled.PlanID, "schedule:"))}, Mutation: core.Mutation{IdempotencyKey: "owner-change", ExpectedVersion: 1}, Dependencies: []core.Object{}, Handoff: "notify", Paused: false})
+	_, err = f.b.Services.Plans.Configure(t.Context(), f.owner, plan.ConfigureRequest{Ref: core.Object{Kind: "schedule", ID: core.ID(strings.TrimPrefix(scheduled.PlanID, "schedule:"))}, Mutation: core.Mutation{IdempotencyKey: "owner-change", ExpectedVersion: 1}, Dependencies: []core.Object{}, Handoff: "notify", State: "active"})
 	need(t, err)
 	if _, err := call("plan_manage", map[string]any{"action": "delete", "plan_id": scheduled.PlanID, "expected_version": scheduled.Version}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("owner relation change did not invalidate public version")
@@ -282,11 +286,11 @@ func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
 func TestPlanToolsWatchLifecycleAndTypeSpecificFields(t *testing.T) {
 	t.Parallel()
 	_, call := defaultToolFixture(t)
-	raw, err := call("plan_manage", map[string]any{"action": "create", "mode": "assistant_watch", "title": "Watch issues", "instructions": "Notify me of new issues", "watcher": map[string]any{"compute_id": "compute-fixture", "script": "exec watcher"}, "paused": true})
+	raw, err := call("plan_manage", map[string]any{"action": "create", "mode": "assistant_watch", "title": "Watch issues", "instructions": "Notify me of new issues", "watcher": map[string]any{"compute_id": "compute-fixture", "script": "exec watcher"}, "state": "paused"})
 	need(t, err)
 	var w planView
 	need(t, json.Unmarshal(raw, &w))
-	if w.Mode != "assistant_watch" || w.Watch == nil || w.EndAt != nil || !w.Paused {
+	if w.Mode != "assistant_watch" || w.Watch == nil || w.EndAt != nil || w.State != "paused" {
 		t.Fatalf("wrong watch projection: %s", raw)
 	}
 	raw, err = call("plan_list", map[string]any{})
@@ -303,7 +307,7 @@ func TestPlanToolsWatchLifecycleAndTypeSpecificFields(t *testing.T) {
 	need(t, err)
 	var updated planView
 	need(t, json.Unmarshal(raw, &updated))
-	if updated.Instructions != "Only relevant issues" || updated.Watch.Watcher.Script != "exec watcher" || !updated.Paused {
+	if updated.Instructions != "Only relevant issues" || updated.Watch.Watcher.Script != "exec watcher" || updated.State != "paused" {
 		t.Fatal("watch partial update lost configuration")
 	}
 	if _, err = call("plan_manage", map[string]any{"action": "update", "plan_id": w.PlanID, "expected_version": updated.Version, "recurrence": "FREQ=MINUTELY"}); core.CodeOf(err) != core.InvalidArgument {

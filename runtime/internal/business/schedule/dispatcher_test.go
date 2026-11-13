@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"molr.ai/runtime/internal/business/planstate"
 	"reflect"
 	"sort"
 	"testing"
@@ -71,7 +72,7 @@ func dispatchFixture(t *testing.T, trigger Trigger, kind Kind) (*sqlitestore.Sto
 	}{"owner", "active"})
 	first, err := firstOccurrence(trigger)
 	testkit.RequireNoError(t, err)
-	plan := Schedule{ID: "plan", OwnerID: "owner", Kind: kind, AssistantID: "assistant", Title: "Daily brief", Trigger: trigger, Enabled: true, NextAt: first, Version: 1}
+	plan := Schedule{ID: "plan", OwnerID: "owner", Kind: kind, AssistantID: "assistant", Title: "Daily brief", Trigger: trigger, State: planstate.Active, NextAt: first, Version: 1}
 	if kind == Personal {
 		plan.AssistantID = ""
 	}
@@ -144,7 +145,7 @@ func TestTDDDispatcherPersonalAndDismissedPlansNeverWakeAgent(t *testing.T) {
 			}
 			current, err := NewRepository(db).Get(testkit.Context(t), "owner", plan.ID)
 			testkit.RequireNoError(t, err)
-			if current.Enabled || current.NextAt != nil {
+			if current.NextAt != nil {
 				t.Fatal("finished or dismissed plan remains runnable")
 			}
 		})
@@ -164,7 +165,7 @@ func TestTDDDispatcherOccurrenceEventAndProgressRollBackTogether(t *testing.T) {
 	}
 	current, err := NewRepository(db).Get(ctx, "owner", plan.ID)
 	testkit.RequireNoError(t, err)
-	if !current.Enabled || current.Version != 1 || !current.NextAt.Equal(start) {
+	if current.State != planstate.Active || current.Version != 1 || !current.NextAt.Equal(start) {
 		t.Fatal("failed commit advanced schedule")
 	}
 	testkit.RequireNoError(t, dispatcher.Tick(ctx, start))
@@ -188,7 +189,7 @@ func TestTDDDispatcherTimezoneAndCountSurviveRepeatedTicks(t *testing.T) {
 	}
 	current, err := NewRepository(db).Get(ctx, "owner", plan.ID)
 	testkit.RequireNoError(t, err)
-	if current.Enabled || current.NextAt != nil {
+	if current.NextAt != nil {
 		t.Fatal("exhausted COUNT remains scheduled")
 	}
 	events := dispatchEvents(t, db)
@@ -246,7 +247,7 @@ func TestDispatcherRecognizesLegacyOccurrenceLedger(t *testing.T) {
 		t.Fatal("upgrade replayed a historical occurrence")
 	}
 	current, err := NewRepository(db).Get(t.Context(), "owner", plan.ID)
-	if err != nil || current.NextAt != nil || current.Enabled {
+	if err != nil || current.NextAt != nil {
 		t.Fatal(current, err)
 	}
 }
@@ -277,5 +278,27 @@ func TestDispatcherNextWakeIgnoresBlockedOverdueSchedule(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	if !next.Equal(at) {
 		t.Fatal("did not advance to next future occurrence", next)
+	}
+}
+
+func TestNextWakeSkipsPlanDeletedAfterCandidateRead(t *testing.T) {
+	start := time.Now().UTC().Add(-time.Minute)
+	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Coalesce}, AssistantSchedule)
+	dispatcher := NewDispatcher(db)
+	dispatcher.Ready = func(ctx context.Context, owner, id core.ID) (bool, error) {
+		if err := NewRepository(db).Delete(ctx, owner, id, plan.Version); err != nil {
+			return false, err
+		}
+		return false, core.NewError(core.NotFound, "deleted")
+	}
+	next, err := dispatcher.NextWake(t.Context(), time.Now().UTC())
+	if err != nil || !next.IsZero() {
+		t.Fatal("deleted candidate stopped wake computation", next, err)
+	}
+	if err := dispatcher.Tick(t.Context(), time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if len(dispatchEvents(t, db)) != 0 {
+		t.Fatal("deleted plan dispatched")
 	}
 }

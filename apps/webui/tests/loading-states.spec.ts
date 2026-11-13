@@ -52,10 +52,10 @@ test('plan list has one initial skeleton and keeps rows while other queries and 
   const at = new Date(Date.now() + 3_600_000).toISOString();
   const event = (id: string): PlanEvent => {
     const ref = { Kind: 'todo', ID: id } as const;
-    const plan: Plan = {
+    const plan: Plan = {State:'active',
       Ref: ref, Title: id, AssistantID: '', Schedule: null, Ready: true, ExecutionCount: 0, HasSuccessors: false, Executions: [], Occurrences: [], BlockedBy: [],
-      Todo: { ID: id, Title: id, Notes: '', AssistantID: '', DueAt: at, Completed: false, Version: 1 },
-      Links: { Ref: ref, Dependencies: [], Handoff: 'notify', Paused: false, Version: 1, Dispatched: false, Runs: [] },
+      Todo: {State:'active', ID: id, Title: id, Notes: '', AssistantID: '', DueAt: at, Completed: false, Version: 1 },
+      Links: { Ref: ref, Dependencies: [], Handoff: 'notify',  Version: 1, Dispatched: false, Runs: [] },
     };
     return { Key: `${id}@${at}`, At: at, Plan: plan };
   };
@@ -65,6 +65,8 @@ test('plan list has one initial skeleton and keeps rows while other queries and 
     await plans.promise;
     await route.fulfill({ json: [first.Plan, second.Plan] });
   });
+  // Keep this loading fixture independent of watches created by other projects.
+  await page.route(url => url.pathname === '/api/plans/watches', route => route.fulfill({ json: { Items: [], NextCursor: '' } }));
   await page.route(url => url.pathname === '/api/plans/events', async route => {
     const next = new URL(route.request().url()).searchParams.has('cursor');
     if (next) nextRequested.release();

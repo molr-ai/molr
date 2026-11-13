@@ -4,6 +4,7 @@ package plan
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
@@ -29,12 +30,12 @@ type Links struct {
 	OwnerID      core.ID
 	Dependencies []core.Object
 	Handoff      string // notify (default) or automatic; explicitly configured by owner
-	Paused       bool
 	Version      core.Version
 	Runs         []Execution
 	Dispatched   bool
 }
 type Plan struct {
+	State       planstate.State
 	Kind        string
 	Ref         core.Object
 	Title       string
@@ -49,11 +50,11 @@ type Plan struct {
 	Ready       bool
 }
 type ConfigureRequest struct {
+	State        planstate.State
 	Mutation     core.Mutation
 	Ref          core.Object
 	Dependencies []core.Object
 	Handoff      string
-	Paused       bool
 }
 type ExecuteRequest struct {
 	Mutation     core.Mutation

@@ -28,7 +28,7 @@ Reference replacement and business metadata are committed in the same transactio
 
 ## Agent Recovery
 
-The official runtime only reads the independent storage format and does not automatically migrate embedded old contexts. Old deployments must stop, back up, and complete a one-time offline conversion before starting this version; temporary tools and local upgrade records are not part of the Runtime release artifacts.
+Checkpoint and context formats follow the database schema version. Startup completes supported migrations before execution recovery. Database version 2 can upgrade to 3; earlier embedded contexts and full event snapshots are not imported automatically. Startup rejects versions without a migration path. `Sequence` remains the checkpoint concurrency revision. Dreaming retains its separate context and progress.
 
 Current checkpoints, model call retry inputs, and dreaming execution progress use their respective persistent references. Disabling `debug.enabled` does not affect the saving of these core states. When core context cannot be written, the Agent must stop advancing; if external tool operations have been issued, continue using operation receipts and unknown result handling, and do not blindly resend due to save failures. Model outputs do not have a separate recovery cache; outputs not entered into checkpoints are allowed to be re-requested via new attempts, while the costs and unknown states of the original attempts are retained independently.
 

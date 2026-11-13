@@ -49,3 +49,13 @@ The database schema version is 2. Installation resources use their own namespace
 `make -C runtime check` includes complete Go behavior tests and static checks; `check-contracts` only checks compilation, formatting, interface inventory, and static rules. The old "expected red light" description is no longer applicable, and the original TDD factory is bound to real implementations. See [Test Instructions](../../../../runtime/tests/README.md) for test entry points and verification boundaries.
 
 Real kernel isolation for Shell is verified separately by [Sandbox Tests](../security/sandbox.md#7-verification). After each actual service starts, it must also pass an authentication check `/api/sandbox`; unit tests do not replace deployment capability probes.
+
+## Database versions and migrations
+
+`system/schema.Version` is the sole database-level persistence format version. Version 3 supports automatic upgrades from version 2. Checkpoint formats migrate with it; separate `CheckpointVersion` and `FormatVersion` fields are removed, while concurrency `Sequence` remains.
+
+Startup acquires the instance lock, opens minimal record storage, and checks the version before migrating and installing indexes and derived query structures. Task recovery and services start afterward. Each migration step commits its data changes and version increment together. Failure rolls back the step and stops startup; retries execute only unfinished steps. New databases initialize directly at the current version. Unversioned nonempty databases, missing upgrade paths, and newer database versions are rejected.
+
+Before upgrading, a verified consistent snapshot atomically replaces `runtime.db.pre-migration.db` beside the database; only one snapshot is retained. It contains the pre-upgrade database, not configuration, the master key, or binaries. Full-instance backups still follow the administration procedure. Rollback requires matching old binaries and pre-upgrade data; there is no automatic downgrade.
+
+Version 2 pause fields become plan lifecycle state, while watch process state moves to `RunState`. Tasks, events, contexts, and scheduling cursors are preserved. Old format interpretation lives only in migration steps; business code uses the current structure.

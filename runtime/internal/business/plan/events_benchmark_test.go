@@ -3,6 +3,7 @@ package plan
 import (
 	"context"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func BenchmarkEventsFirstPageManyRecurringPlans(b *testing.B) {
 			err = db.Write(b.Context(), func(ctx context.Context, tx persistence.Tx) error {
 				for i := 0; i < count; i++ {
 					id := core.ID(fmt.Sprintf("plan-%04d", i))
-					item := schedule.Schedule{ID: id, OwnerID: "owner", Kind: schedule.Personal, Title: string(id), Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Coalesce}}
+					item := schedule.Schedule{ID: id, OwnerID: "owner", Kind: schedule.Personal, Title: string(id), State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Coalesce}}
 					if err := tx.Put(ctx, "business.schedules", persistence.Key("owner", id), item); err != nil {
 						return err
 					}

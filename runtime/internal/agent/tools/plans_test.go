@@ -13,9 +13,9 @@ func TestPlanRequestValidationAndOpaqueReferences(t *testing.T) {
 	}{
 		{"plan_manage", `{"action":"create","mode":"todo","title":"Plan"}`, true},
 		{"plan_manage", `{"action":"create","mode":"todo","title":"Plan","assistant_id":"foreign"}`, false},
-		{"plan_manage", `{"action":"update","plan_id":"todo:one","paused":true,"expected_version":"revision"}`, true},
+		{"plan_manage", `{"action":"update","plan_id":"todo:one","state":"paused","expected_version":"revision"}`, true},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","title":"Plan","expected_version":0}`, false},
-		{"plan_manage", `{"action":"configure","plan_id":"todo:one","paused":true,"expected_version":"revision"}`, false},
+		{"plan_manage", `{"action":"configure","plan_id":"todo:one","state":"paused","expected_version":"revision"}`, false},
 		{"plan_manage", `{"action":"delete","plan_id":"todo:one","title":"irrelevant","expected_version":"revision"}`, false},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","expected_version":"revision"}`, false},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","expected_version":"revision","start_at":null,"end_at":null}`, true},

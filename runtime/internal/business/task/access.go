@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 )
@@ -15,6 +16,13 @@ func RequireExecution(ctx context.Context, store persistence.Store, owner, id, a
 	}
 	if value.AssistantID != assistant || value.State == Paused || value.State == Canceled || value.State == Completed || value.State == Failed {
 		return core.NewError(core.Forbidden, "object access denied")
+	}
+	if value.Plan.ID != "" {
+		state, err := planstate.Load(ctx, store, owner, value.Plan)
+		if err != nil {
+			return err
+		}
+		return planstate.Visible(state)
 	}
 	return nil
 }

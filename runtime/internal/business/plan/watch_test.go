@@ -164,7 +164,7 @@ func TestWatchHandlingCompletionReleasesOnlyItsBatch(t *testing.T) {
 		t.Fatal("next batch blocked")
 	}
 	current, _ := svc.Get(t.Context(), owner(), w.ID)
-	if current.State != "running" {
+	if current.RunState != "running" {
 		t.Fatal("handling completed the watcher")
 	}
 	ordinary := add(t, s, "ordinary", "assistant")

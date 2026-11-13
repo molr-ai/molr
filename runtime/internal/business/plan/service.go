@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"molr.ai/runtime/internal/business/assistant"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
@@ -60,21 +61,17 @@ func (s *Coordinator) authorize(ctx context.Context, p core.Principal, ref core.
 // The candidate flag is derived and saved atomically with its source fields.
 // Existing notices are reconciled separately even after a plan stops being a candidate.
 func saveLinks(ctx context.Context, tx persistence.Tx, v Links) error {
-	pending := !v.Paused && !v.Dispatched && len(v.Dependencies) > 0 && len(v.Runs) == 0 &&
-		(v.Handoff == "notify" || v.Handoff == "automatic" && v.Ref.Kind == "todo")
-	if pending {
-		tasks, err := persistence.Select[task.Task](ctx, tx.Store(), "business.tasks", persistence.Query{
-			Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("Plan.Kind", v.Ref.Kind), persistence.Eq("Plan.ID", v.Ref.ID)}, Unordered: true, Limit: 1,
-		})
-		if err != nil {
-			return err
-		}
-		pending = len(tasks) == 0
+	if err := tx.Put(ctx, bucket, key(v.OwnerID, v.Ref), v); err != nil {
+		return err
 	}
-	return tx.Put(ctx, bucket, key(v.OwnerID, v.Ref), struct {
-		Links
-		HandoffPending bool
-	}{v, pending})
+	state, err := planstate.Load(ctx, tx.Store(), v.OwnerID, v.Ref)
+	if persistence.Missing(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return planstate.RefreshHandoff(ctx, tx, v.OwnerID, v.Ref, state)
 }
 func (s *Coordinator) links(ctx context.Context, owner core.ID, ref core.Object) (Links, error) {
 	v, err := persistence.Load[Links](ctx, s.store, bucket, key(owner, ref))
@@ -92,6 +89,7 @@ func (s *Coordinator) source(ctx context.Context, owner core.ID, ref core.Object
 	if ref.Kind == "watch" {
 		v, e := watch.Load(ctx, s.store, owner, ref.ID)
 		err = e
+		p.State = v.State
 		p.Watch = &v
 		p.Kind = "assistant_watch"
 		p.Title = v.Title
@@ -99,6 +97,7 @@ func (s *Coordinator) source(ctx context.Context, owner core.ID, ref core.Object
 	} else if ref.Kind == "todo" {
 		v, e := todo.NewRepository(s.store).Get(ctx, owner, ref.ID)
 		err = e
+		p.State = v.State
 		p.Todo = &v
 		p.Kind = "todo"
 		p.Title = v.Title
@@ -106,6 +105,7 @@ func (s *Coordinator) source(ctx context.Context, owner core.ID, ref core.Object
 	} else {
 		v, e := schedule.NewRepository(s.store).Get(ctx, owner, ref.ID)
 		err = e
+		p.State = v.State
 		p.Schedule = &v
 		p.Kind = string(v.Kind)
 		p.Title = v.Title
@@ -115,9 +115,6 @@ func (s *Coordinator) source(ctx context.Context, owner core.ID, ref core.Object
 		return p, err
 	}
 	p.Links, err = s.links(ctx, owner, ref)
-	if p.Watch != nil {
-		p.Links.Paused = p.Watch.Paused
-	}
 	return p, err
 }
 func taskRun(t task.Task) Execution {
@@ -265,7 +262,17 @@ func (s *Coordinator) Configure(ctx context.Context, p core.Principal, req Confi
 		}
 		v.Dependencies = req.Dependencies
 		v.Handoff = req.Handoff
-		v.Paused = req.Paused
+		if req.State == "" {
+			req.State = source.State
+		}
+		if req.State != planstate.Active && req.State != planstate.Paused {
+			return v, core.Invalid("state", "invalid plan state")
+		}
+		if source.State != req.State {
+			if err := planstate.Set(ctx, tx, p.OwnerID, req.Ref, req.State, version(source)); err != nil {
+				return v, err
+			}
+		}
 		v.Version++
 		return v, saveLinks(ctx, tx, v)
 	})
@@ -325,7 +332,7 @@ func (s *Coordinator) BindTask(ctx context.Context, p core.Principal, v *task.Ta
 	ref := req.Plan
 	if ref.ID == "" {
 		ref = core.Object{Kind: "todo", ID: id()}
-		item := todo.Todo{ID: ref.ID, OwnerID: p.OwnerID, AssistantID: v.AssistantID, Title: v.Goal, Notes: v.Goal, Version: 1}
+		item := todo.Todo{State: planstate.Active, ID: ref.ID, OwnerID: p.OwnerID, AssistantID: v.AssistantID, Title: v.Goal, Notes: v.Goal, Version: 1}
 		if err := todo.NewRepository(s.store).Insert(ctx, item); err != nil {
 			return err
 		}
@@ -341,7 +348,7 @@ func (s *Coordinator) BindTask(ctx context.Context, p core.Principal, v *task.Ta
 	if err != nil {
 		return err
 	}
-	if len(blocked) > 0 || source.Links.Paused {
+	if len(blocked) > 0 || source.State != planstate.Active {
 		return core.NewError(core.FailedPrecondition, "plan prerequisites are incomplete or plan paused")
 	}
 	runs, err := s.runs(ctx, p.OwnerID, source)
@@ -385,7 +392,7 @@ func (s *Coordinator) Execute(ctx context.Context, p core.Principal, req Execute
 				}
 			}
 		}
-		if !continuing && (len(blocked) > 0 || source.Links.Paused) {
+		if !continuing && (len(blocked) > 0 || source.State != planstate.Active) {
 			return Execution{}, core.NewError(core.FailedPrecondition, "plan is blocked")
 		}
 		if len(req.Result) > 8192 {
@@ -481,7 +488,7 @@ func (s *Coordinator) ScheduleReady(ctx context.Context, owner, id core.ID) (boo
 		return false, err
 	}
 	blocked, err := s.ready(ctx, owner, p)
-	return len(blocked) == 0 && !p.Links.Paused, err
+	return len(blocked) == 0 && p.State == planstate.Active, err
 }
 func (s *Coordinator) StartScheduled(ctx context.Context, source schedule.Schedule, at time.Time) (core.ID, error) {
 	p, err := s.source(ctx, source.OwnerID, core.Object{Kind: "schedule", ID: source.ID})
@@ -519,7 +526,14 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 				return err
 			}
 		}
-		if entry.Handoff != "automatic" || entry.Paused || entry.Dispatched || len(entry.Dependencies) == 0 || entry.Ref.Kind != "todo" {
+		state, err := planstate.Load(ctx, s.store, entry.OwnerID, entry.Ref)
+		if persistence.Missing(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if entry.Handoff != "automatic" || state != planstate.Active || entry.Dispatched || len(entry.Dependencies) == 0 || entry.Ref.Kind != "todo" {
 			continue
 		}
 		err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -530,7 +544,7 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 			if err != nil {
 				return err
 			}
-			if p.Links.Dispatched || p.Links.Paused || p.Links.Handoff != "automatic" || p.AssistantID == "" {
+			if p.Links.Dispatched || p.State != planstate.Active || p.Links.Handoff != "automatic" || p.AssistantID == "" {
 				return nil
 			}
 			if p.Todo.StartAt != nil && p.Todo.StartAt.After(now) {
@@ -582,7 +596,7 @@ func (s *Coordinator) syncHandoff(ctx context.Context, entry Links) error {
 		}
 		in.Label = p.Title
 		in.AssistantID = p.AssistantID
-		if p.Links.Handoff != "notify" || p.Links.Paused || p.Links.Dispatched || len(p.Links.Dependencies) == 0 || len(p.Links.Runs) > 0 {
+		if p.Links.Handoff != "notify" || p.State != planstate.Active || p.Links.Dispatched || len(p.Links.Dependencies) == 0 || len(p.Links.Runs) > 0 {
 			return notification.Sync(ctx, s.store, entry.OwnerID, in, false)
 		}
 		blocked, err := s.ready(ctx, entry.OwnerID, p)
@@ -598,7 +612,7 @@ func (s *Coordinator) syncHandoff(ctx context.Context, entry Links) error {
 				return err
 			}
 		}
-		ready := p.Links.Handoff == "notify" && !p.Links.Paused && !p.Links.Dispatched && len(p.Links.Dependencies) > 0 && len(blocked) == 0 && len(runs) == 0
+		ready := p.Links.Handoff == "notify" && p.State == planstate.Active && !p.Links.Dispatched && len(p.Links.Dependencies) > 0 && len(blocked) == 0 && len(runs) == 0
 		return notification.Sync(ctx, s.store, entry.OwnerID, in, ready)
 	})
 }

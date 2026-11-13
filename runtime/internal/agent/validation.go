@@ -20,9 +20,6 @@ func (t Turn) Validate() error {
 		if c.OwnerID != t.Principal.OwnerID || c.AssistantID != t.Principal.SubjectID {
 			return core.NewError(core.Forbidden, "checkpoint identity mismatch")
 		}
-		if c.FormatVersion == 0 {
-			return core.Invalid("checkpoint", "format version required")
-		}
 	}
 	return nil
 }

@@ -36,7 +36,7 @@ export function ConversationCard({ card, timeZone, onOpen }: Props) {
   if (schedules.data) {
     const schedule = schedules.data;
     title ||= schedule.Title;
-    status = { label: schedule.Enabled ? t.enabled : t.disabled, tone: schedule.Enabled ? 'positive' : 'neutral' };
+    status = { label: schedule.State === 'active' && !!schedule.NextAt ? t.enabled : t.disabled, tone: schedule.State === 'active' && !!schedule.NextAt ? 'positive' : 'neutral' };
     details.push({ label: schedule.NextAt ? t.schedules.next : t.schedules.start, value: formatDate(schedule.NextAt || schedule.Trigger.StartAt, schedule.Trigger.Timezone) }, { label: t.schedules.timezone, value: schedule.Trigger.Timezone });
   }
   const kind = card.Kind === 'task' ? t.chat.tasks : card.Kind === 'resource' ? t.nav.resources : t.nav.schedules;

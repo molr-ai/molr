@@ -92,7 +92,7 @@ func TestPreviousSchemaIsRejectedWithoutConversion(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	defer db.Close()
 	ctx := t.Context()
-	previous := sqlite.Schema{Version: 1, CheckpointVersion: 1}
+	previous := sqlite.Schema{Version: 1}
 	testkit.RequireNoError(t, db.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if err := tx.Put(ctx, "system", "schema", previous); err != nil {
 			return err

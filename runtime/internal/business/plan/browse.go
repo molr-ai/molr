@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"molr.ai/runtime/internal/business/planstate"
 	"sort"
 	"time"
 
@@ -26,6 +27,7 @@ type ExecutionSummary struct {
 	CompletedAt  *time.Time
 }
 type Summary struct {
+	State          planstate.State
 	Kind           string
 	Ref            core.Object
 	Title          string
@@ -48,7 +50,7 @@ func executionSummary(run Execution) ExecutionSummary {
 func summarize(p Plan, include func(Execution) bool) Summary {
 	links := p.Links
 	links.Runs = nil
-	out := Summary{Kind: p.Kind, Ref: p.Ref, Title: p.Title, AssistantID: p.AssistantID, Todo: p.Todo, Schedule: p.Schedule, Watch: p.Watch, Links: links,
+	out := Summary{State: p.State, Kind: p.Kind, Ref: p.Ref, Title: p.Title, AssistantID: p.AssistantID, Todo: p.Todo, Schedule: p.Schedule, Watch: p.Watch, Links: links,
 		Executions: []ExecutionSummary{}, ExecutionCount: len(p.Executions), Occurrences: p.Occurrences, BlockedBy: p.BlockedBy, Ready: p.Ready}
 	seen := map[time.Time]bool{}
 	for i, run := range p.Executions {
@@ -121,16 +123,28 @@ func (s *Coordinator) Detail(ctx context.Context, p core.Principal, ref core.Obj
 		if err != nil {
 			return err
 		}
-		source.Ready = len(source.BlockedBy) == 0 && !source.Links.Paused
+		source.Ready = len(source.BlockedBy) == 0 && source.State == planstate.Active
 		out = summarize(source, func(run Execution) bool { return at != nil && run.OccurrenceAt != nil && run.OccurrenceAt.Equal(*at) })
-		links, err := persistence.Select[struct{}](ctx, s.store, bucket, persistence.Query{
+		links, err := persistence.Select[struct{ Ref core.Object }](ctx, s.store, bucket, persistence.Query{
 			Where:  []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "Dependencies", Op: "has", Value: ref.Kind + "/" + string(ref.ID)}},
-			Fields: []string{"OwnerID"}, Limit: 1, Unordered: true,
+			Fields: []string{"Ref"}, Unordered: true,
 		})
 		if err != nil {
 			return err
 		}
-		out.HasSuccessors = len(links) != 0
+		for _, link := range links {
+			state, err := planstate.Load(ctx, s.store, p.OwnerID, link.Ref)
+			if persistence.Missing(err) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			if state != planstate.Deleted {
+				out.HasSuccessors = true
+				break
+			}
+		}
 		return nil
 	})
 	return out, err

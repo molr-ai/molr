@@ -91,7 +91,7 @@ func TestFilteredHandoffsStillResolveNotices(t *testing.T) {
 			default:
 				req := ConfigureRequest{Mutation: mutation("change", links.Version), Ref: next, Dependencies: []core.Object{prep}, Handoff: "notify"}
 				if action == "pause" {
-					req.Paused = true
+					req.State = "paused"
 				}
 				if action == "remove-dependencies" {
 					req.Dependencies = nil

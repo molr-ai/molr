@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -20,7 +21,10 @@ func (s *Coordinator) Resolve(ctx context.Context, p core.Principal, id core.ID)
 			return err
 		}
 		for _, kind := range []string{"todo", "schedule", "watch"} {
-			var source struct{ ID, OwnerID, AssistantID core.ID }
+			var source struct {
+				ID, OwnerID, AssistantID core.ID
+				State                    planstate.State
+			}
 			bucket := "business." + kind + "s"
 			if kind == "watch" {
 				bucket = "business.watches"
@@ -32,7 +36,7 @@ func (s *Coordinator) Resolve(ctx context.Context, p core.Principal, id core.ID)
 			if err != nil {
 				return err
 			}
-			if source.ID == id && source.OwnerID == p.OwnerID && (p.Kind != core.ActorAssistant || source.AssistantID == p.SubjectID) {
+			if source.State != planstate.Deleted && source.ID == id && source.OwnerID == p.OwnerID && (p.Kind != core.ActorAssistant || source.AssistantID == p.SubjectID) {
 				ref = core.Object{Kind: kind, ID: id}
 				return nil
 			}

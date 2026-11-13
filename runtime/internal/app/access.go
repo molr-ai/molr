@@ -106,7 +106,7 @@ func (a access) executionAssistant(ctx context.Context, e core.Execution) (assis
 		return assistant.Assistant{}, err
 	}
 	if shellsession.ManagedFor(ctx, e) != nil {
-		return value, nil
+		return value, checkExecutionPlan(ctx, a.store, e)
 	}
 	if e.TaskID != "" {
 		if err := task.RequireExecution(ctx, a.store, e.Principal.OwnerID, e.TaskID, e.AssistantID); err != nil {

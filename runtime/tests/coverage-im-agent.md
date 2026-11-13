@@ -85,7 +85,7 @@
 | `internal/agent` | `Checkpoints.Load` | `TestTDDCheckpointCompareAndSwapAndOwnerIsolation`、`TestTDDAgentHandlesEventAndResumesCommittedCheckpoint` |
 | `internal/agent` | `Checkpoints.SaveIfChanged` | `TestCheckpointSaveIfChanged`、`TestProgressNoopPreservesRecoveryReferenceAndForcedObservation` |
 | `internal/agent` | `Checkpoints.Save` | `TestTDDCheckpointCompareAndSwapAndOwnerIsolation` |
-| `internal/agent` | `Turn.Validate` | `TestTurnRejectsCrossOwnerAndAssistantCheckpoints`、`TestTDDTurnValidationSourceAndCheckpointFormat` |
+| `internal/agent` | `Turn.Validate` | `TestTurnRejectsCrossOwnerAndAssistantCheckpoints`、`TestTDDTurnValidationSourceAndCheckpointIdentity` |
 
 重点：已提交输入重投不重复执行，重启读取持久检查点；提交失败不得报告完成；上下文不隐式包含原始聊天历史；内部输出不自动发布消息；版本比较交换及身份校验。
 

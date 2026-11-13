@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"sort"
 	"strings"
 	"time"
@@ -42,10 +43,10 @@ type planView struct {
 	Timezone, Recurrence  string
 	MissedPolicy          schedule.MissedPolicy
 	MaxCatchUp            int
-	Enabled               bool
 	Dependencies          []string
 	Handoff               string
-	Paused, Ready         bool
+	State                 planstate.State
+	Ready                 bool
 	BlockedBy             []string
 	Executions            []plan.Execution
 	Occurrences           []time.Time
@@ -53,7 +54,7 @@ type planView struct {
 
 func planID(ref core.Object) string { return ref.Kind + ":" + string(ref.ID) }
 func viewPlan(p plan.Plan) planView {
-	v := planView{PlanID: planID(p.Ref), Title: p.Title, Version: planVersion(p), Dependencies: []string{}, BlockedBy: []string{}, Handoff: p.Links.Handoff, Paused: p.Links.Paused, Ready: p.Ready, Executions: p.Executions, Occurrences: p.Occurrences}
+	v := planView{PlanID: planID(p.Ref), Title: p.Title, Version: planVersion(p), Dependencies: []string{}, BlockedBy: []string{}, Handoff: p.Links.Handoff, State: p.State, Ready: p.Ready, Executions: p.Executions, Occurrences: p.Occurrences}
 	for _, ref := range p.Links.Dependencies {
 		v.Dependencies = append(v.Dependencies, planID(ref))
 	}
@@ -66,15 +67,12 @@ func viewPlan(p plan.Plan) planView {
 		v.Instructions = p.Watch.Instructions
 		v.StartAt = p.Watch.StartAt
 		v.EndAt = p.Watch.EndAt
-		v.Paused = p.Watch.Paused
-		v.Enabled = !p.Watch.Paused && p.Watch.State != "completed"
 	} else if p.Todo != nil {
 		v.Mode = "todo"
 		v.Instructions = p.Todo.Notes
 		v.StartAt = p.Todo.StartAt
 		v.EndAt = p.Todo.EndAt
 		v.DueAt = p.Todo.DueAt
-		v.Enabled = !p.Links.Paused
 	} else {
 		v.Mode = "assistant_schedule"
 		v.Instructions = p.Schedule.Instructions
@@ -84,7 +82,6 @@ func viewPlan(p plan.Plan) planView {
 		v.Recurrence = p.Schedule.Trigger.Recurrence
 		v.MissedPolicy = p.Schedule.Trigger.MissedPolicy
 		v.MaxCatchUp = p.Schedule.Trigger.MaxCatchUp
-		v.Enabled = p.Schedule.Enabled
 	}
 	v.ExecutionCount = len(v.Executions)
 	v.ExecutionsTruncated = len(v.Executions) > 20
@@ -325,9 +322,8 @@ func (t planTools) manage(ctx context.Context, e core.Execution, r tools.PlanReq
 					v.Trigger.MaxCatchUp = r.MaxCatchUp
 				}
 				if hasPlanField(r, "start_at", "timezone", "recurrence") {
-					v.Enabled = true
 				}
-				_, err = t.schedules.Update(ctx, e.Principal, schedule.UpdateRequest{ID: ref.ID, Enabled: v.Enabled, CreateRequest: schedule.CreateRequest{Mutation: mutation, Kind: v.Kind, AssistantID: e.AssistantID, Title: v.Title, Instructions: v.Instructions, Trigger: v.Trigger, EndAt: v.EndAt}})
+				_, err = t.schedules.Update(ctx, e.Principal, schedule.UpdateRequest{ID: ref.ID, State: v.State, CreateRequest: schedule.CreateRequest{Mutation: mutation, Kind: v.Kind, AssistantID: e.AssistantID, Title: v.Title, Instructions: v.Instructions, Trigger: v.Trigger, EndAt: v.EndAt}})
 			}
 			if err != nil {
 				return ref, err
@@ -357,10 +353,10 @@ func (t planTools) manage(ctx context.Context, e core.Execution, r tools.PlanReq
 		_, err = t.plans.Execute(ctx, e.Principal, plan.ExecuteRequest{Ref: ref, Mutation: mutation, Action: "start", OccurrenceAt: r.OccurrenceAt})
 		return ref, err
 	}
-	if hasPlanField(r, "dependencies", "handoff", "paused") {
+	if hasPlanField(r, "dependencies", "handoff", "state") {
 		deps := current.Links.Dependencies
 		handoff := current.Links.Handoff
-		paused := current.Links.Paused
+		state := current.State
 		if hasPlanField(r, "dependencies") {
 			deps = []core.Object{}
 			for _, id := range r.Dependencies {
@@ -371,11 +367,11 @@ func (t planTools) manage(ctx context.Context, e core.Execution, r tools.PlanReq
 		if hasPlanField(r, "handoff") {
 			handoff = r.Handoff
 		}
-		if hasPlanField(r, "paused") {
-			paused = r.Paused
+		if hasPlanField(r, "state") {
+			state = planstate.State(r.State)
 		}
 		mutation.ExpectedVersion = current.Links.Version
-		_, err = t.plans.Configure(ctx, e.Principal, plan.ConfigureRequest{Ref: ref, Mutation: mutation, Dependencies: deps, Handoff: handoff, Paused: paused})
+		_, err = t.plans.Configure(ctx, e.Principal, plan.ConfigureRequest{Ref: ref, Mutation: mutation, Dependencies: deps, Handoff: handoff, State: state})
 		if err != nil {
 			return ref, err
 		}
@@ -391,7 +387,7 @@ func (t planTools) create(ctx context.Context, e core.Execution, r tools.PlanReq
 		if r.Watcher == nil || hasPlanField(r, "due_at", "timezone", "recurrence", "missed_policy", "max_catch_up", "dependencies", "handoff") {
 			return core.Object{}, core.Invalid("watcher", "watcher required; scheduling fields are not accepted")
 		}
-		w, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: mutation, AssistantID: e.AssistantID, Title: r.Title, Instructions: r.Instructions, Watcher: *r.Watcher, StartAt: r.StartAt, EndAt: r.EndAt, Paused: r.Paused})
+		w, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: mutation, AssistantID: e.AssistantID, Title: r.Title, Instructions: r.Instructions, Watcher: *r.Watcher, StartAt: r.StartAt, EndAt: r.EndAt, State: planstate.State(r.State)})
 		return core.Object{Kind: "watch", ID: w.ID}, err
 	}
 	if r.Watcher != nil {
@@ -448,12 +444,12 @@ func (t planTools) manageWatch(ctx context.Context, e core.Execution, r tools.Pl
 	if hasPlanField(r, "end_at") {
 		w.EndAt = r.EndAt
 	}
-	if hasPlanField(r, "paused") {
-		w.Paused = r.Paused
+	if hasPlanField(r, "state") {
+		w.State = planstate.State(r.State)
 	}
 	if r.Action == "execute" {
-		w.Paused = false
+		w.State = planstate.Active
 	}
-	_, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: m, ID: w.ID, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, StartAt: w.StartAt, EndAt: w.EndAt, Paused: w.Paused})
+	_, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: m, ID: w.ID, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, StartAt: w.StartAt, EndAt: w.EndAt, State: w.State})
 	return p.Ref, err
 }

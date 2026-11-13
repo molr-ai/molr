@@ -204,7 +204,7 @@ func TestBackgroundQueriesUseSelectiveIndexes(t *testing.T) {
 		bucket, index string
 		q             persistence.Query
 	}{
-		{"business.schedules", "records_query_business_schedules_enabled_nextatkey", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true), {Field: "NextAtKey", Op: ">", Value: ""}, {Field: "NextAtKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "NextAtKey", Limit: 200}},
+		{"business.schedules", "records_query_business_schedules_state_nextatkey", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active"), {Field: "NextAtKey", Op: ">", Value: ""}, {Field: "NextAtKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "NextAtKey", Limit: 200}},
 		{"business.dream_sessions_index", "records_query_business_dream_sessions_index_state_deadlinekey", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active"), {Field: "DeadlineKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "DeadlineKey", Limit: 100}},
 		{"business.plan-links", "records_query_business_plan_links_handoffpending_key", persistence.Query{Where: []persistence.Filter{persistence.Eq("HandoffPending", true)}, Unordered: true}},
 		{"business.tasks", "records_query_business_tasks_ownerid_plan_kind_plan_id", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("Plan.Kind", "todo"), persistence.Eq("Plan.ID", "plan")}, Unordered: true}},

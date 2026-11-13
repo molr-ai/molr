@@ -91,7 +91,10 @@ func TestDetailSuccessorsUseOwnerScopedExistenceQuery(t *testing.T) {
 		t.Fatal("unrelated links loaded", counted.rows)
 	}
 	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, bucket, "owner/successor", Links{OwnerID: "owner", Dependencies: []core.Object{ref}})
+		if err := todo.NewRepository(tx.Store()).Insert(ctx, todo.Todo{ID: "successor", OwnerID: "owner", Version: 1}); err != nil {
+			return err
+		}
+		return tx.Put(ctx, bucket, "owner/successor", Links{Ref: core.Object{Kind: "todo", ID: "successor"}, OwnerID: "owner", Dependencies: []core.Object{ref}})
 	})
 	if err != nil {
 		t.Fatal(err)

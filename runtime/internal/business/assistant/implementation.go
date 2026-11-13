@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	avatarutil "molr.ai/runtime/internal/avatar"
+	"molr.ai/runtime/internal/business/planstate"
 	"strings"
 	"sync"
 	"time"
@@ -431,15 +432,15 @@ func (s *service) Dismiss(ctx context.Context, p core.Principal, req LifecycleRe
 			return v, err
 		}
 		archive := archivedState{Grants: grants}
-		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", v.ID), persistence.Eq("Enabled", true)}})
+		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", v.ID), persistence.Eq("State", planstate.Active)}})
 		if err != nil {
 			return v, err
 		}
 		for _, plan := range schedules {
-			if plan.OwnerID == p.OwnerID && plan.AssistantID == v.ID && plan.Enabled {
+			if plan.OwnerID == p.OwnerID && plan.AssistantID == v.ID && plan.State == planstate.Active {
 				archive.ScheduleIDs = append(archive.ScheduleIDs, plan.ID)
 				old := plan.Version
-				plan.Enabled = false
+				plan.State = planstate.Paused
 				plan.NextAt = nil
 				plan.Version++
 				if err = schedule.NewRepository(s.store).Save(ctx, plan, old); err != nil {
@@ -532,7 +533,7 @@ func (s *service) Rehire(ctx context.Context, p core.Principal, req RehireReques
 				return v, forbidden()
 			}
 			old := plan.Version
-			plan.Enabled = true
+			plan.State = planstate.Active
 			plan.NextAt = &plan.Trigger.StartAt
 			plan.Version++
 			if err = repo.Save(ctx, plan, old); err != nil {

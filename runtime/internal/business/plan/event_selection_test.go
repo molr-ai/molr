@@ -3,6 +3,7 @@ package plan
 import (
 	"fmt"
 	"math/rand"
+	"molr.ai/runtime/internal/business/planstate"
 	"reflect"
 	"sort"
 	"testing"
@@ -66,7 +67,7 @@ func TestEventsSmallPagesMatchFullChronologicalProjection(t *testing.T) {
 		if i%2 != 0 {
 			kind = schedule.AssistantSchedule
 		}
-		item := schedule.Schedule{ID: id, OwnerID: "owner", AssistantID: "assistant", Kind: kind, Title: string(id), Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=7", MissedPolicy: schedule.Coalesce}}
+		item := schedule.Schedule{ID: id, OwnerID: "owner", AssistantID: "assistant", Kind: kind, Title: string(id), State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=7", MissedPolicy: schedule.Coalesce}}
 		if err := schedule.NewRepository(db).Insert(t.Context(), item); err != nil {
 			t.Fatal(err)
 		}
@@ -119,7 +120,7 @@ func TestEventsCompletedHistorySelectionIgnoresExecutionOrder(t *testing.T) {
 	coordinator, db := fixture(t)
 	at := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
 	ref := core.Object{Kind: "schedule", ID: "daily"}
-	item := schedule.Schedule{ID: ref.ID, OwnerID: "owner", Kind: schedule.Personal, Title: "daily", Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=8", MissedPolicy: schedule.Coalesce}}
+	item := schedule.Schedule{ID: ref.ID, OwnerID: "owner", Kind: schedule.Personal, Title: "daily", State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=8", MissedPolicy: schedule.Coalesce}}
 	if err := schedule.NewRepository(db).Insert(t.Context(), item); err != nil {
 		t.Fatal(err)
 	}

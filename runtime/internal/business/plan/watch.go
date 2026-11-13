@@ -3,6 +3,7 @@ package plan
 import (
 	"context"
 	"encoding/base64"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
@@ -20,7 +21,7 @@ func (s *Coordinator) DispatchWatch(ctx context.Context, owner, id core.ID) erro
 		if err != nil {
 			return err
 		}
-		if w.Paused {
+		if w.State != planstate.Active {
 			return nil
 		}
 		rows, err := persistence.Select[task.Task](ctx, tx.Store(), "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Plan.Kind", "watch"), persistence.Eq("Plan.ID", id), {Field: "State", Op: "in", Value: []task.State{task.Pending, task.Running, task.Waiting, task.Paused}}}, Limit: 1})
@@ -99,7 +100,7 @@ func (s *Coordinator) WatchPage(ctx context.Context, p core.Principal, scope, st
 	if state != "" && state != "all" && state != "open" && state != "done" {
 		return out, core.Invalid("state", "invalid state")
 	}
-	q := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, OrderBy: "key", Limit: page.Limit + 1}
+	q := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "State", Op: "!=", Value: planstate.Deleted}}, OrderBy: "key", Limit: page.Limit + 1}
 	if scope == "me" {
 		return out, nil
 	}
@@ -113,9 +114,9 @@ func (s *Coordinator) WatchPage(ctx context.Context, p core.Principal, scope, st
 		q.Where = append(q.Where, persistence.Eq("AssistantID", scope))
 	}
 	if state == "done" {
-		q.Where = append(q.Where, persistence.Eq("State", "completed"))
+		q.Where = append(q.Where, persistence.Eq("RunState", "completed"))
 	} else if state == "open" {
-		q.Where = append(q.Where, persistence.Filter{Field: "State", Op: "!=", Value: "completed"})
+		q.Where = append(q.Where, persistence.Filter{Field: "RunState", Op: "!=", Value: "completed"})
 	}
 	binding := string(p.OwnerID) + "/" + scope + "/" + state + "/"
 	if page.Cursor != "" {
@@ -135,6 +136,9 @@ func (s *Coordinator) WatchPage(ctx context.Context, p core.Principal, scope, st
 	}
 	for _, w := range rows {
 		v, err := s.Detail(ctx, p, core.Object{Kind: "watch", ID: w.ID}, nil)
+		if persistence.Missing(err) {
+			continue
+		}
 		if err != nil {
 			return out, err
 		}

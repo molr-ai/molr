@@ -11,7 +11,7 @@ export function eventEnd(plan: Plan, at: string) {
   return plan.Schedule?.EndAt ? new Date(Date.parse(at) + Date.parse(plan.Schedule.EndAt) - Date.parse(plan.Schedule.Trigger.StartAt)).toISOString() : null;
 }
 export function eventDone(plan: Plan, at?: string) {
- if(plan.Watch)return plan.Watch.State==='completed';
+ if(plan.Watch)return plan.Watch.RunState==='completed';
   const run = plan.Schedule?.Trigger.Recurrence ? plan.Executions.find(run => !!run.OccurrenceAt && !!at && Date.parse(run.OccurrenceAt) === Date.parse(at)) : plan.Executions[0];
   return run ? run.State === 'completed' : !!plan.Todo?.Completed;
 }

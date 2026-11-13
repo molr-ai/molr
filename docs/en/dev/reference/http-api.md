@@ -446,6 +446,8 @@ Assistant budget: Hiring and updating assistants require passing `Budget: {"Limi
 
 ### Upcoming Scheduled Events
 
+All plan sources use `State=active|paused|deleted`; `Links` contains dependencies, handoff settings, and personal execution records. `POST /api/plans/configure` accepts `State=active|paused`; schedule updates use `State` instead of `Enabled`. `NextAt=null` means there is no next automatic trigger. Delete endpoints retain the `ID` and `Mutation` contract. History and watch events do not block deletion; dependencies from undeleted plans do. The deletion transaction cancels unfinished tasks and jobs, and commit notifications stop execution. Normal lists exclude deleted plans and detail reads return `not_found`.
+
 `GET /api/plans?from=…&to=…` returns calendar summaries for a window of at most 125 days. Without dates it returns the plan summary catalog; `scope=all|me|<assistant ID>` filters ownership and `mode=undated` returns only undated todos. Reads are scoped to the account, visible plans and their direct dependencies. Hidden dependencies contribute only to readiness.
 
 `GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` returns `{Items: [{Key, At, PlanKey}], Plans: {"schedule/<id>": summary}, NextCursor}`. Each plan is transmitted once per page; `PlanKey` references `Plans`. `limit` is 1–200, default 50; `scope` is `all`, `me`, or an assistant ID; `kind` is `all|item|event|automatic`; `state` is `all|open|done`. `from` is required and includes an offset.
@@ -687,7 +689,7 @@ Code errors use `Field=ConnectionCode`: malformed codes report `sandbox_connecti
 
 `Plan.Kind` is `todo`, `personal_schedule`, `assistant_schedule`, or `assistant_watch`; source references use `todo`, `schedule`, or `watch`. `GET /api/plans/watches` returns paginated status summaries with `scope`, `state=all|open|done`, `limit`, and `cursor`, independently of calendar dates. `GET /api/plans/watch/{id}` returns configuration, status, and recent changes. Execution history uses the existing plan history endpoints. Calendar-range queries and `/api/plans/events` exclude watches.
 
-`POST /api/watches` creates or updates a watch; updates include `ID` and the expected version. Fields are `AssistantID`, `Title`, `Instructions`, `Watcher`, optional `StartAt`/`EndAt`, and `Paused`. `POST /api/watches/delete` takes `ID` and mutation metadata; retain and pause plans with change history. Creation registers a plan, while status reports asynchronous startup and authorization results. See the [watcher protocol](../runtime/watchers.md).
+`POST /api/watches` creates or updates a watch; updates include `ID` and the expected version. Fields include `AssistantID`, `Title`, `Instructions`, `Watcher`, optional `StartAt` / `EndAt`, and lifecycle `State=active|paused`. `RunState` describes the observation process separately. `POST /api/watches/delete` accepts `ID` and mutation metadata, logically deletes the watch, stops observation, and cancels unfinished handling tasks. Creation registers the plan; `RunState=running` indicates readiness.
 
 ## Assistant collaboration
 

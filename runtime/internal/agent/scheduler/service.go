@@ -239,7 +239,17 @@ func (s *service) Run(ctx context.Context) error {
 				s.mu.Lock()
 				s.active[persistence.Key(claim.Job.Event.OwnerID, claim.Job.Event.ID)] = activeClaim{stop, claim.Job.Version}
 				s.mu.Unlock()
-				err = s.options.Handle(turnCtx, claim)
+				stopClaim, watchErr := s.watchClaim(turnCtx, claim, stop)
+				if watchErr != nil {
+					err = watchErr
+				} else {
+					if turnCtx.Err() == nil {
+						err = s.options.Handle(turnCtx, claim)
+					} else {
+						err = turnCtx.Err()
+					}
+					stopClaim()
+				}
 				interrupted := errors.Is(context.Cause(turnCtx), ErrRuntimeInterrupted)
 				stopWatch()
 				stop()

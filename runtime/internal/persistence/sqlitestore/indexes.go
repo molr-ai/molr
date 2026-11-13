@@ -82,7 +82,7 @@ var recordIndexes = []recordIndex{
 	{"records_query_business_revisions_revisionscope_number_key", "business.revisions", []string{"RevisionScope", "Number", "key"}},
 	{"records_query_business_watches_ownerid_assistantid_key", "business.watches", []string{"OwnerID", "AssistantID", "key"}},
 	{"records_query_business_watches_ownerid_state_key", "business.watches", []string{"OwnerID", "State", "key"}},
-	{"records_query_business_schedules_enabled_nextatkey", "business.schedules", []string{"Enabled", "NextAtKey"}},
+	{"records_query_business_schedules_state_nextatkey", "business.schedules", []string{"State", "NextAtKey"}},
 	{"records_query_business_schedules_ownerid_assistantid_key", "business.schedules", []string{"OwnerID", "AssistantID", "key"}},
 	{"records_query_business_tasks_ownerid_assistantid_key", "business.tasks", []string{"OwnerID", "AssistantID", "key"}},
 	{"records_query_business_tasks_ownerid_assistantid_updatedatkey_key", "business.tasks", []string{"OwnerID", "AssistantID", "UpdatedAtKey", "key"}},

@@ -39,7 +39,7 @@ func init() {
 			return reopened
 		}, FailNextCommit: db.FailNextCommit, FailNextMigration: db.InjectMigrationError, SetFutureSchema: func() {
 			if err := db.Store().Write(testkit.Context(t), func(ctx context.Context, tx persistence.Tx) error {
-				return tx.Put(ctx, "system", "schema", sqlite.Schema{Version: 999, CheckpointVersion: 999})
+				return tx.Put(ctx, "system", "schema", sqlite.Schema{Version: 999})
 			}); err != nil {
 				t.Fatal(err)
 			}

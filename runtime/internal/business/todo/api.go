@@ -3,12 +3,14 @@ package todo
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"time"
 
 	"molr.ai/runtime/internal/core"
 )
 
 type Todo struct {
+	State       planstate.State
 	ID          core.ID
 	OwnerID     core.ID
 	Title       string

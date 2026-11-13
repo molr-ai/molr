@@ -3,6 +3,7 @@ package schedule
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -12,7 +13,7 @@ import (
 type Kind string
 
 const (
-	Personal      Kind = "personal_schedule"
+	Personal          Kind = "personal_schedule"
 	AssistantSchedule Kind = "assistant_schedule"
 )
 
@@ -39,7 +40,7 @@ type Schedule struct {
 	Instructions string
 	Trigger      Trigger
 	EndAt        *time.Time
-	Enabled      bool
+	State        planstate.State
 	NextAt       *time.Time
 	Version      core.Version
 }
@@ -59,8 +60,8 @@ type CreateRequest struct {
 }
 type UpdateRequest struct {
 	CreateRequest
-	ID      core.ID
-	Enabled bool
+	ID    core.ID
+	State planstate.State
 }
 type DeleteRequest struct {
 	Mutation core.Mutation

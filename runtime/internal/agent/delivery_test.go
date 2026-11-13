@@ -23,7 +23,7 @@ func seedCompressionHistory(t *testing.T, f contractFixture) {
 	t.Helper()
 	inputs := []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("retain original work and evidence ", 500)}}
 	raw, _ := json.Marshal(privateContext{Inputs: inputs})
-	testkit.RequireNoError(t, f.Checkpoints.Save(t.Context(), Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: "seed-run", LastEventID: "seed-event", Sequence: 1, FormatVersion: 1, Context: raw, SavedAt: time.Now()}, 0))
+	testkit.RequireNoError(t, f.Checkpoints.Save(t.Context(), Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: "seed-run", LastEventID: "seed-event", Sequence: 1, Context: raw, SavedAt: time.Now()}, 0))
 }
 func requestCompression(t *testing.T, e *Engine, p core.Principal, key string) CompressionResult {
 	t.Helper()

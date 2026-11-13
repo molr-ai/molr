@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"path/filepath"
 	"testing"
 	"time"
@@ -169,7 +170,7 @@ func init() {
 				t.Fatal(err)
 			}
 			for _, p := range schedules.Items {
-				if p.Enabled {
+				if p.State == "active" {
 					result.ActiveScheduleIDs = append(result.ActiveScheduleIDs, p.ID)
 				}
 			}
@@ -231,7 +232,7 @@ func init() {
 			}
 			for _, planID := range state.ActiveScheduleIDs {
 				start := time.Now().UTC().Add(time.Hour)
-				err := schedule.NewRepository(db).Insert(ctx, schedule.Schedule{ID: planID, OwnerID: "owner", AssistantID: id, Kind: schedule.AssistantSchedule, Title: "Plan", Trigger: schedule.Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: schedule.Skip}, Enabled: true, NextAt: &start, Version: 1})
+				err := schedule.NewRepository(db).Insert(ctx, schedule.Schedule{ID: planID, OwnerID: "owner", AssistantID: id, Kind: schedule.AssistantSchedule, Title: "Plan", Trigger: schedule.Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: schedule.Skip}, State: planstate.Active, NextAt: &start, Version: 1})
 				if err != nil {
 					t.Fatal(err)
 				}

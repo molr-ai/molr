@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"molr.ai/runtime/internal/business/planstate"
 	"strings"
 	"time"
 
@@ -93,10 +93,14 @@ func NewService(store persistence.Store, options Options) Service {
 	return &service{store: store, repo: NewRepository(store), options: options}
 }
 func (r *repository) Get(ctx context.Context, owner, id core.ID) (Todo, error) {
-	return persistence.Load[Todo](ctx, r.store, bucket, persistence.Key(owner, id))
+	v, err := persistence.Load[Todo](ctx, r.store, bucket, persistence.Key(owner, id))
+	if err == nil {
+		err = planstate.Visible(v.State)
+	}
+	return v, err
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Todo], error) {
-	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner), {Field: "State", Op: "!=", Value: planstate.Deleted}}
 	if q.AssistantID != "" {
 		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))
 	}
@@ -109,13 +113,16 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 }
 
 func (r *repository) Insert(ctx context.Context, v Todo) error {
+	if v.State == "" {
+		v.State = planstate.Active
+	}
 	return persistence.Insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
 }
 func (r *repository) Save(ctx context.Context, v Todo, expected core.Version) error {
 	return persistence.SaveVersion(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Todo) core.Version { return v.Version })
 }
 func (r *repository) Delete(ctx context.Context, owner, id core.ID, expected core.Version) error {
-	return persistence.DeleteVersion[Todo](ctx, r.store, bucket, persistence.Key(owner, id), expected, func(v Todo) core.Version { return v.Version })
+	return planstate.Delete(ctx, r.store, owner, core.Object{Kind: "todo", ID: id}, expected)
 }
 func (s *service) checkAssistant(ctx context.Context, p core.Principal, id core.ID) error {
 	if p.Kind == core.ActorAssistant && id != p.SubjectID {
@@ -137,7 +144,7 @@ func (s *service) Create(ctx context.Context, p core.Principal, req CreateReques
 		if err := s.checkAssistant(ctx, p, req.AssistantID); err != nil {
 			return Todo{}, err
 		}
-		v := Todo{ID: s.id(), OwnerID: p.OwnerID, Version: 1, Title: req.Title, Notes: req.Notes, AssistantID: req.AssistantID, DueAt: req.DueAt, StartAt: req.StartAt, EndAt: req.EndAt}
+		v := Todo{State: planstate.Active, ID: s.id(), OwnerID: p.OwnerID, Version: 1, Title: req.Title, Notes: req.Notes, AssistantID: req.AssistantID, DueAt: req.DueAt, StartAt: req.StartAt, EndAt: req.EndAt}
 		return v, s.repo.Insert(ctx, v)
 	})
 }
@@ -196,24 +203,7 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 }
 func (s *service) Delete(ctx context.Context, p core.Principal, req DeleteRequest) error {
 	_, err := mutate(ctx, s, p, "delete", req.ID, req.Mutation, req, true, false, func(ctx context.Context) (struct{}, error) {
-		v, err := s.repo.Get(ctx, p.OwnerID, req.ID)
-		if err != nil {
-			return struct{}{}, err
-		}
-		_ = v
-		if err := checkPlanReferences(ctx, s.store, p.OwnerID, core.Object{Kind: "todo", ID: req.ID}); err != nil {
-			return struct{}{}, err
-		}
-		if err := s.repo.Delete(ctx, p.OwnerID, req.ID, req.Mutation.ExpectedVersion); err != nil {
-			return struct{}{}, err
-		}
-		return struct{}{}, s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			err := tx.Delete(ctx, "business.plan-links", persistence.Key(p.OwnerID, core.ID("todo-"+string(req.ID))))
-			if persistence.Missing(err) {
-				return nil
-			}
-			return err
-		})
+		return struct{}{}, s.repo.Delete(ctx, p.OwnerID, req.ID, req.Mutation.ExpectedVersion)
 	})
 	return err
 }
@@ -223,42 +213,4 @@ func validTimeBlock(start, end *time.Time) bool {
 		return true
 	}
 	return start != nil && end != nil && !start.IsZero() && end.After(*start)
-}
-
-func checkPlanReferences(ctx context.Context, store persistence.Store, owner core.ID, ref core.Object) error {
-	tasks, err := persistence.Select[struct {
-		OwnerID core.ID
-		Plan    core.Object
-	}](ctx, store, "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Plan.Kind", ref.Kind), persistence.Eq("Plan.ID", ref.ID)}, Limit: 1, Unordered: true})
-	if err != nil {
-		return err
-	}
-	for _, v := range tasks {
-		if v.OwnerID == owner && v.Plan == ref {
-			return core.NewError(core.FailedPrecondition, "pause a plan with execution history")
-		}
-	}
-	links, err := persistence.Select[struct {
-		OwnerID      core.ID
-		Ref          core.Object
-		Dependencies []core.Object
-		Runs         []json.RawMessage
-	}](ctx, store, "business.plan-links", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, Any: [][]persistence.Filter{{persistence.Eq("Ref.Kind", ref.Kind), persistence.Eq("Ref.ID", ref.ID)}, {{Field: "Dependencies", Op: "has", Value: ref.Kind + "/" + string(ref.ID)}}}})
-	if err != nil {
-		return err
-	}
-	for _, v := range links {
-		if v.OwnerID != owner {
-			continue
-		}
-		if v.Ref == ref && len(v.Runs) > 0 {
-			return core.NewError(core.FailedPrecondition, "pause a plan with execution history")
-		}
-		for _, dep := range v.Dependencies {
-			if dep == ref {
-				return core.NewError(core.FailedPrecondition, "plan has dependent arrangements")
-			}
-		}
-	}
-	return nil
 }

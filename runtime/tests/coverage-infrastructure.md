@@ -409,3 +409,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform/hostprograms` | `New`, `Catalog.List` | `TestCatalogDiscoveryNeverExecutesAndKeepsInstallations`, `TestCatalogCacheIdleRefreshAndCancellation`, `TestCatalogSystemPathsAndDescriptions` |
 | `internal/platform/hostprograms` | `Describe` | `TestCatalogSystemPathsAndDescriptions` |
 | `internal/sandboxmanager` | `Client.Programs` | `TestProgramsClientAuthenticatedRemoteDiscovery` |
+
+| 包 | 公开入口 | 行为测试 |
+| --- | --- | --- |
+| `internal/persistence/sqlitestore` | `OpenUninitialized`, `Store.Empty`, `Store.Initialize` | `TestUninitializedStoreDefersDerivedSchema` |

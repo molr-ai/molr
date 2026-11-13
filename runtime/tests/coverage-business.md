@@ -229,3 +229,9 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/assistant` | `Service.SaveHiring`, `Service.Directory`, `Service.HireTemporary`, `Service.EndTemporary`, `Service.ExpireTemporary` | `internal/app.TestTemporaryPreauthorizationLifecycleAndIsolation`, `internal/app.TestTemporaryConcurrentSlotsAndBudget`, `internal/app.TestTemporaryCreateRollbackAndExpiry`, `internal/app.TestPermanentHiringRetainsSourceExpiryAndCanBecomeFinite` |
 
 | `internal/business/assistant` | `Service.SetPeerCommunication`, `CanContact` | `internal/app.TestPeerCommunicationGatesDirectoryAndBothMessageDirections`, `TestCanContactIntersectsScopeExpiryAndEmployment` |
+
+| 包 | 公开入口 | 行为测试 |
+| --- | --- | --- |
+| `internal/business/planstate` | `Bucket`, `Load`, `Visible`, `Delete` | `TestDeletePreservesHistoryAndCancelsAllWork`, `TestOnlyUndeletedDependenciesPreventDeletion` |
+| `internal/business/planstate` | `Set` | `TestLifecycleVersionAndCommitNotification`, `TestDeletePreservesHistoryAndCancelsAllWork` |
+| `internal/business/planstate` | `RefreshHandoff` | `TestStateChangeRefreshesHandoffCandidate` |

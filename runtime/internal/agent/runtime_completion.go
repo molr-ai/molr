@@ -27,7 +27,7 @@ func (e *Engine) commitTurn(runCtx context.Context, t Turn, key string, checkpoi
 
 	e.options.Trace.Record(runCtx, "context.final", "succeeded", "", map[string]any{"Inputs": inputs})
 	var err error
-	out := Outcome{Status: Status{AssistantID: t.Event.AssistantID, State: state, ActiveTaskID: t.Event.TaskID, ExecutionID: t.Principal.ExecutionID, WaitingReason: waiting, UpdatedAt: e.options.Now().UTC()}, Checkpoint: Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, FormatVersion: 1, Sequence: checkpoint.Sequence + 1, LastEventID: t.Event.ID, SavedAt: e.options.Now().UTC()}}
+	out := Outcome{Status: Status{AssistantID: t.Event.AssistantID, State: state, ActiveTaskID: t.Event.TaskID, ExecutionID: t.Principal.ExecutionID, WaitingReason: waiting, UpdatedAt: e.options.Now().UTC()}, Checkpoint: Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, Sequence: checkpoint.Sequence + 1, LastEventID: t.Event.ID, SavedAt: e.options.Now().UTC()}}
 	// Dream files have their own durable commit plan. Never place filesystem
 	// effects inside the status/checkpoint transaction: its rollback cannot undo files.
 	if t.Event.Kind == event.DreamDue {

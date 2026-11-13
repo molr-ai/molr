@@ -53,7 +53,6 @@ type Checkpoint struct {
 	OwnerID             core.ID
 	AssistantID         core.ID
 	ExecutionID         core.ID
-	FormatVersion       uint32
 	Sequence            uint64
 	Context             json.RawMessage
 	PendingOperationIDs []core.ID

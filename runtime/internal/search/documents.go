@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/catalog"
 
 	"molr.ai/runtime/internal/core"
@@ -45,6 +46,7 @@ func walkRecords(ctx context.Context, store persistence.Store, bucket string, q 
 }
 
 type sourceRow struct {
+	Plan              core.Object
 	ID, AssistantID   core.ID
 	Name, Goal, State string
 	Version           core.Version
@@ -99,6 +101,18 @@ func (s *service) walkDocuments(ctx context.Context, owner core.ID, query Query,
 			case Resources:
 				doc.Title = row.Name
 			case Tasks:
+				if row.Plan.ID != "" {
+					state, err := planstate.Load(ctx, s.store, owner, row.Plan)
+					if persistence.Missing(err) {
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+					if state == planstate.Deleted {
+						return nil
+					}
+				}
 				doc.Title = row.Goal
 			}
 			return visit(doc)

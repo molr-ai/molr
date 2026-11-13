@@ -51,7 +51,7 @@ func (c *checkpoints) save(ctx context.Context, value Checkpoint, expected uint6
 			return false, err
 		}
 	}
-	if value.FormatVersion != 1 || value.Sequence == 0 || value.SavedAt.IsZero() || len(value.Context) > 256<<20 || !json.Valid(value.Context) {
+	if value.Sequence == 0 || value.SavedAt.IsZero() || len(value.Context) > 256<<20 || !json.Valid(value.Context) {
 		return false, core.Invalid("checkpoint", "unsupported checkpoint format or sequence")
 	}
 	saved := false
@@ -68,7 +68,7 @@ func (c *checkpoints) save(ctx context.Context, value Checkpoint, expected uint6
 		if err != nil {
 			return err
 		}
-		if skipUnchanged && !changed && old.ExecutionID == value.ExecutionID && old.LastEventID == value.LastEventID && old.FormatVersion == value.FormatVersion {
+		if skipUnchanged && !changed && old.ExecutionID == value.ExecutionID && old.LastEventID == value.LastEventID {
 			return nil
 		}
 		stored := storedCheckpoint{Checkpoint: value, ContextStored: true}

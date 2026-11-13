@@ -39,6 +39,9 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 		}
 		return next, nil
 	}, Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
+		if err := checkEventPlan(ctx, store, c.Job.Event); err != nil {
+			return err
+		}
 		if c.Job.Event.Kind == event.UserMessage || c.Job.Event.Kind == event.AssistantMessage {
 			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
 				return err

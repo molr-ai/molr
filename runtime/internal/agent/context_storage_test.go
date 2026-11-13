@@ -15,7 +15,7 @@ import (
 func TestCheckpointStorageSharesMessagesAndRetainsOnlyCurrentReference(t *testing.T) {
 	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"system","Text":"shared"},{"Role":"user","Text":"old"}]}`)}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"system","Text":"shared"},{"Role":"user","Text":"old"}]}`)}
 	if err := f.Checkpoints.Save(t.Context(), cp, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestCheckpointStorageSharesMessagesAndRetainsOnlyCurrentReference(t *testin
 func TestCheckpointReferenceRollsBackWithExecutionTransaction(t *testing.T) {
 	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"user","Text":"durable"}]}`)}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"user","Text":"durable"}]}`)}
 	if err := f.Checkpoints.Save(t.Context(), cp, 0); err != nil {
 		t.Fatal(err)
 	}

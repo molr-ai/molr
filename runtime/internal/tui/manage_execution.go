@@ -7,6 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/plan"
+	"molr.ai/runtime/internal/business/planstate"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/runtimeclient"
 	"molr.ai/runtime/internal/shellsession"
@@ -24,7 +26,7 @@ func (m *model) plansScreen(id core.ID) tea.Cmd {
 		s := manageScreen{title: "计划", body: "暂停后续安排不会取消已启动的业务任务。"}
 		for _, p := range items {
 			label := p.Title
-			if p.Links.Paused {
+			if p.State == planstate.Paused {
 				label += " · 已暂停"
 			}
 			if p.Schedule != nil && p.Schedule.NextAt != nil {
@@ -53,13 +55,20 @@ func (m *model) planScreen(ref core.Object) tea.Cmd {
 			}
 		}
 		label := "暂停后续安排"
-		if p.Links.Paused {
+		if p.State == planstate.Paused {
 			label = "恢复后续安排"
 		}
 		op := mutation(p.Links.Version)
 		s.rows = []manageRow{{label, func(m *model) tea.Cmd {
 			return m.confirmAction(label, p.Title+"\n已经启动的任务需在任务详情中单独管理。", label, func(ctx context.Context, c *runtimeclient.Client) error {
-				return c.Do(ctx, "POST", "/api/plans/configure", plan.ConfigureRequest{Mutation: op, Ref: ref, Dependencies: p.Links.Dependencies, Handoff: p.Links.Handoff, Paused: !p.Links.Paused}, nil)
+				nextState := planstate.Paused
+				if p.State == planstate.Paused {
+					nextState = planstate.Active
+				}
+				if w := p.Watch; w != nil {
+					return c.Do(ctx, "POST", "/api/watches", watch.Request{Mutation: mutation(w.Version), ID: w.ID, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, StartAt: w.StartAt, EndAt: w.EndAt, State: nextState}, nil)
+				}
+				return c.Do(ctx, "POST", "/api/plans/configure", plan.ConfigureRequest{Mutation: op, Ref: ref, Dependencies: p.Links.Dependencies, Handoff: p.Links.Handoff, State: nextState}, nil)
 			}, "/plans")
 		}}}
 		history, err := getAll[plan.ExecutionSummary](ctx, c, endpoint+"/history")

@@ -53,6 +53,20 @@ type boundStore struct{ tx *transaction }
 // Open creates the private KV backing schema. Higher-level schema/version
 // migrations are managed separately by storage/sqlite.Database.
 func Open(path string) (*Store, error) {
+	s, err := OpenUninitialized(path)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.Initialize(); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+// OpenUninitialized opens only the record store so schema validation and migration
+// can run before format-dependent indexes and projections are installed.
+func OpenUninitialized(path string) (*Store, error) {
 	if path == "" || !filepath.IsAbs(path) {
 		return nil, core.Invalid("database_path", "absolute path required")
 	}
@@ -87,23 +101,29 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{db: db, gate: make(chan struct{}, 1), path: path}
-	if err := s.createTermIndexes(); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	if err := s.createIndexes(); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
 	if err := s.prepareStatements(); err != nil {
 		_ = s.Close()
 		return nil, err
 	}
-	if err := s.initializeQueryProjections(); err != nil {
-		_ = s.Close()
-		return nil, err
-	}
 	return s, nil
+}
+
+// Empty reports whether the record store has any data before schema initialization.
+func (s *Store) Empty(ctx context.Context) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM records)").Scan(&exists)
+	return !exists, translate(ctx, err)
+}
+
+// Initialize installs derived query structures after the database schema is accepted.
+func (s *Store) Initialize() error {
+	if err := s.createTermIndexes(); err != nil {
+		return err
+	}
+	if err := s.createIndexes(); err != nil {
+		return err
+	}
+	return s.initializeQueryProjections()
 }
 
 // Keep the fixed record operations prepared across transactions. Preparing each

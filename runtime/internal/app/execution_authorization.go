@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
+	"molr.ai/runtime/internal/business/task"
 	"time"
 
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
@@ -57,12 +60,25 @@ func executionAuthorization(store persistence.Store, e core.Execution, check fun
 	if worker.EmployerID != "" {
 		keys = append(keys, persistence.RecordSignal("business.assistants", persistence.Key(e.Principal.OwnerID, worker.EmployerID)))
 	}
+	if e.TaskID != "" {
+		keys = append(keys, persistence.RecordSignal("business.tasks", persistence.Key(e.Principal.OwnerID, e.TaskID)))
+		work, err := task.NewRepository(store).Get(context.Background(), e.Principal.OwnerID, e.TaskID)
+		if err != nil {
+			return nil, err
+		}
+		if work.Plan.ID != "" {
+			keys = append(keys, persistence.RecordSignal(planstate.Bucket(work.Plan), persistence.Key(e.Principal.OwnerID, work.Plan.ID)))
+		}
+	}
 	watch, err := store.Watch(keys...)
 	if err != nil {
 		return nil, err
 	}
 	return &sandbox.Authorization{Watch: watch, Check: func(ctx context.Context) (time.Time, error) {
 		checkedAt := time.Now()
+		if err := checkExecutionPlan(ctx, store, e); err != nil {
+			return time.Time{}, err
+		}
 		if err := check(ctx); err != nil {
 			return time.Time{}, err
 		}
@@ -87,4 +103,48 @@ func executionAuthorization(store persistence.Store, e core.Execution, check fun
 		}
 		return next, nil
 	}}, nil
+}
+
+// Managed processes may outlive their turn and even a completed task, but never
+// a deleted source plan. Pausing a plan only prevents new task starts.
+func checkExecutionPlan(ctx context.Context, store persistence.Store, e core.Execution) error {
+	if e.TaskID == "" {
+		return nil
+	}
+	work, err := task.NewRepository(store).Get(ctx, e.Principal.OwnerID, e.TaskID)
+	if err != nil {
+		return err
+	}
+	if work.AssistantID != e.AssistantID {
+		return denied()
+	}
+	if work.Plan.ID == "" {
+		return nil
+	}
+	state, err := planstate.Load(ctx, store, e.Principal.OwnerID, work.Plan)
+	if err != nil {
+		return err
+	}
+	return planstate.Visible(state)
+}
+
+// Completion notifications retain their source operation identity. A late
+// notification from a deleted plan must not start another model turn.
+func checkEventPlan(ctx context.Context, store persistence.Store, e event.AssistantEvent) error {
+	taskID := e.TaskID
+	if taskID == "" && e.OperationID != "" {
+		op, err := persistence.Load[struct{ TaskID core.ID }](ctx, store, "agent.operations", persistence.Key(e.OwnerID, e.OperationID))
+		if err != nil && !persistence.Missing(err) {
+			return err
+		}
+		taskID = op.TaskID
+	}
+	if taskID == "" {
+		return nil
+	}
+	err := checkExecutionPlan(ctx, store, core.Execution{Principal: core.Principal{OwnerID: e.OwnerID}, AssistantID: e.AssistantID, TaskID: taskID})
+	if persistence.Missing(err) {
+		return core.NewError(core.Canceled, "source plan is no longer available")
+	}
+	return err
 }

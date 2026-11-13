@@ -26,10 +26,10 @@ func TestRuntimeWakeUsesPersistedBoundariesAndPendingExternalWork(t *testing.T) 
 	due := now.Add(time.Hour)
 	earlier := now.Add(time.Minute)
 	need(t, store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, watch.Bucket, "owner/paused", watch.Watch{Paused: true, StartAt: &earlier}); err != nil {
+		if err := tx.Put(ctx, watch.Bucket, "owner/paused", watch.Watch{State: "paused", StartAt: &earlier}); err != nil {
 			return err
 		}
-		return tx.Put(ctx, watch.Bucket, "owner/future", watch.Watch{State: "pending", StartAt: &due})
+		return tx.Put(ctx, watch.Bucket, "owner/future", watch.Watch{State: "active", RunState: "pending", StartAt: &due})
 	}))
 	next, err = nextRuntimeTick(t.Context(), store, now)
 	need(t, err)

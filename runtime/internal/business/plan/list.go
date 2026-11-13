@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"sort"
 	"time"
 
@@ -27,16 +28,16 @@ func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.
 		if !from.IsZero() && (!to.After(from) || to.Sub(from) > 125*24*time.Hour) {
 			return core.Invalid("range", "maximum calendar range is 125 days")
 		}
-		sourceQuery := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}}
+		sourceQuery := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "State", Op: "!=", Value: planstate.Deleted}}}
 		if light {
-			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "DueAt", "StartAt", "EndAt", "Completed", "Version"}
+			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "State", "DueAt", "StartAt", "EndAt", "Completed", "Version"}
 		}
 		todos, err := persistence.Select[todo.Todo](ctx, s.store, "business.todos", sourceQuery)
 		if err != nil {
 			return err
 		}
 		if light {
-			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "Kind", "Trigger", "EndAt", "Enabled", "NextAt", "Version"}
+			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "Kind", "Trigger", "EndAt", "State", "NextAt", "Version"}
 		}
 		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", sourceQuery)
 		if err != nil {
@@ -53,22 +54,22 @@ func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.
 		for i := range todos {
 			v := &todos[i]
 			if v.OwnerID == p.OwnerID {
-				add(&Plan{Kind: "todo", Ref: core.Object{Kind: "todo", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Todo: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
+				add(&Plan{State: v.State, Kind: "todo", Ref: core.Object{Kind: "todo", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Todo: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 			}
 		}
 		for i := range schedules {
 			v := &schedules[i]
 			if v.OwnerID == p.OwnerID {
-				add(&Plan{Kind: string(v.Kind), Ref: core.Object{Kind: "schedule", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Schedule: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
+				add(&Plan{State: v.State, Kind: string(v.Kind), Ref: core.Object{Kind: "schedule", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Schedule: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 			}
 		}
-		watches, err := persistence.Select[watch.Watch](ctx, s.store, watch.Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, Unordered: true})
+		watches, err := persistence.Select[watch.Watch](ctx, s.store, watch.Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "State", Op: "!=", Value: planstate.Deleted}}, Unordered: true})
 		if err != nil {
 			return err
 		}
 		for i := range watches {
 			v := &watches[i]
-			add(&Plan{Kind: "assistant_watch", Ref: core.Object{Kind: "watch", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Watch: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
+			add(&Plan{State: v.State, Kind: "assistant_watch", Ref: core.Object{Kind: "watch", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Watch: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 		}
 		if err := s.loadListDetails(ctx, p.OwnerID, visible, light); err != nil {
 			return err
@@ -112,10 +113,7 @@ func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.
 					row.BlockedBy = append(row.BlockedBy, ref)
 				}
 			}
-			if row.Watch != nil {
-				row.Links.Paused = row.Watch.Paused
-			}
-			row.Ready = len(row.BlockedBy) == 0 && !row.Links.Paused
+			row.Ready = len(row.BlockedBy) == 0 && row.State == planstate.Active
 			if row.Schedule != nil && !from.IsZero() {
 				row.Occurrences, err = schedule.CalendarTimes(ctx, *row.Schedule, from, to)
 				if err != nil {

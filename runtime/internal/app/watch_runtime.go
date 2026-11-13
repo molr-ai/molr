@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"molr.ai/runtime/internal/business/planstate"
 	"sync"
 	"time"
 
@@ -63,8 +64,8 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 		return nil
 	}
 	// Completed watches still need dispatch until their final signals and task settle.
-	rows, err := persistence.Select[watch.Watch](ctx, wr.store, watch.Bucket, persistence.Query{Fields: []string{"ID", "OwnerID", "AssistantID", "Version", "State", "Reason", "RunID", "Paused", "StartAt", "EndAt", "RetryAt", "AuthorizationFingerprint", "PendingCount", "HandlingTaskID"}, Unordered: true, Any: [][]persistence.Filter{
-		{{Field: "State", Op: "!=", Value: "completed"}},
+	rows, err := persistence.Select[watch.Watch](ctx, wr.store, watch.Bucket, persistence.Query{Fields: []string{"ID", "OwnerID", "AssistantID", "Version", "State", "Reason", "RunID", "RunState", "StartAt", "EndAt", "RetryAt", "AuthorizationFingerprint", "PendingCount", "HandlingTaskID"}, Unordered: true, Where: []persistence.Filter{{Field: "State", Op: "!=", Value: planstate.Deleted}}, Any: [][]persistence.Filter{
+		{{Field: "RunState", Op: "!=", Value: "completed"}},
 		{{Field: "PendingCount", Op: ">", Value: 0}},
 		{{Field: "HandlingTaskID", Op: "!=", Value: ""}},
 	}})
@@ -77,9 +78,9 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 		seen[k] = true
 		a, assistantErr := assistant.NewRepository(wr.store).Get(ctx, w.OwnerID, w.AssistantID)
 		expired := w.EndAt != nil && !now.Before(*w.EndAt)
-		runnable := assistantErr == nil && a.State == assistant.Active && !w.Paused && !expired && w.State != "completed"
-		if (w.PendingCount > 0 || w.HandlingTaskID != "") && assistantErr == nil && a.State == assistant.Active && !w.Paused {
-			if err := wr.plans.DispatchWatch(ctx, w.OwnerID, w.ID); err != nil && core.CodeOf(err) != core.FailedPrecondition {
+		runnable := assistantErr == nil && a.State == assistant.Active && w.State == planstate.Active && !expired && w.RunState != "completed"
+		if (w.PendingCount > 0 || w.HandlingTaskID != "") && assistantErr == nil && a.State == assistant.Active && w.State == planstate.Active {
+			if err := wr.plans.DispatchWatch(ctx, w.OwnerID, w.ID); err != nil && core.CodeOf(err) != core.FailedPrecondition && !persistence.Missing(err) {
 				return err
 			}
 		}
@@ -95,12 +96,12 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 			}
 		}
 
-		if expired && w.State != "completed" {
+		if expired && w.RunState != "completed" {
 			if _, err := wr.watches.End(ctx, w.OwnerID, w.ID, w.RunID, "expired", false); err != nil {
 				return err
 			}
 		}
-		if !w.Paused && !expired && w.State != "completed" && (assistantErr != nil || a.State != assistant.Active) {
+		if w.State == planstate.Active && !expired && w.RunState != "completed" && (assistantErr != nil || a.State != assistant.Active) {
 			if w.Reason == "assistant_inactive" && w.RunID == "" {
 				continue
 			}
@@ -118,6 +119,9 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 			}
 			if err := wr.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 				current, err := watch.Load(ctx, tx.Store(), w.OwnerID, w.ID)
+				if persistence.Missing(err) {
+					return nil
+				}
 				if err != nil {
 					return err
 				}
@@ -134,12 +138,12 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 		if err != nil {
 			return err
 		}
-		if w.State == "blocked" && w.Reason != "assistant_inactive" && (w.Reason != "authorization_unavailable" || fingerprint == w.AuthorizationFingerprint) {
+		if w.RunState == "blocked" && w.Reason != "assistant_inactive" && (w.Reason != "authorization_unavailable" || fingerprint == w.AuthorizationFingerprint) {
 			continue
 		}
 		next, err := wr.watches.Begin(ctx, w.OwnerID, w.ID, w.Version)
 		if err != nil {
-			if core.CodeOf(err) == core.FailedPrecondition {
+			if core.CodeOf(err) == core.FailedPrecondition || persistence.Missing(err) {
 				continue
 			}
 			return err

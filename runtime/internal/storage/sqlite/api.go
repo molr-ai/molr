@@ -9,8 +9,7 @@ import (
 )
 
 type Schema struct {
-	Version           uint32
-	CheckpointVersion uint32
+	Version uint32
 }
 type Backup struct {
 	ID        core.ID

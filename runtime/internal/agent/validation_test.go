@@ -19,7 +19,7 @@ func TestTurnRejectsCrossOwnerAndAssistantCheckpoints(t *testing.T) {
 		t.Fatal("cross-owner input accepted")
 	}
 	turn.Event.OwnerID = "o"
-	turn.Checkpoint = &Checkpoint{OwnerID: "o", AssistantID: "other", FormatVersion: 1}
+	turn.Checkpoint = &Checkpoint{OwnerID: "o", AssistantID: "other"}
 	if turn.Validate() == nil {
 		t.Fatal("cross-assistant checkpoint accepted")
 	}

@@ -35,24 +35,25 @@ func nextRuntimeTick(ctx context.Context, store persistence.Store, now time.Time
 		StartAt, EndAt, RetryAt, Deadline *time.Time
 		Cursor                            struct{ NextAt *time.Time }
 		State                             string
-		Paused, Completed                 bool
+		Completed                         bool
+		RunState                          string
 	}
 	for _, bucket := range []string{"business.todos", "business.watches", "business.dream_timers", "business.dream_sessions_index"} {
 		where := []persistence.Filter{persistence.Eq("State", "active")}
 		switch bucket {
 		case "business.todos":
-			where = []persistence.Filter{persistence.Eq("Completed", false)}
+			where = []persistence.Filter{persistence.Eq("Completed", false), persistence.Eq("State", "active")}
 		case "business.watches":
-			where = []persistence.Filter{persistence.Eq("Paused", false), {Field: "State", Op: "!=", Value: "completed"}}
+			where = []persistence.Filter{persistence.Eq("State", "active"), {Field: "RunState", Op: "!=", Value: "completed"}}
 		case "business.dream_timers":
 			where = []persistence.Filter{{Field: "Cursor.NextAt", Op: "!=", Value: nil}}
 		}
-		rows, err := persistence.Select[boundary](ctx, store, bucket, persistence.Query{Where: where, Fields: []string{"StartAt", "EndAt", "RetryAt", "Deadline", "Cursor", "State", "Paused", "Completed"}, Unordered: true})
+		rows, err := persistence.Select[boundary](ctx, store, bucket, persistence.Query{Where: where, Fields: []string{"StartAt", "EndAt", "RetryAt", "Deadline", "Cursor", "State", "RunState", "Completed"}, Unordered: true})
 		if err != nil {
 			return next, err
 		}
 		for _, row := range rows {
-			if row.Paused || row.Completed || row.State == "completed" {
+			if row.Completed || row.RunState == "completed" {
 				continue
 			}
 			consider(row.StartAt)

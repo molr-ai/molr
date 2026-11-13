@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -74,7 +75,7 @@ func TestWatcherProtocolStateAndIdempotentEvents(t *testing.T) {
 	}
 	receive(t, s, p, w, `{"type":"complete","state":{"done":true}}`)
 	got, _ = s.Get(t.Context(), p, w.ID)
-	if got.State != "completed" || len(got.Pending) != 1 {
+	if got.RunState != "completed" || len(got.Pending) != 1 {
 		t.Fatal("complete discarded pending event")
 	}
 	if _, err = s.Receive(t.Context(), p.OwnerID, w.ID, w.RunID, []byte(line)); err == nil {
@@ -148,7 +149,7 @@ func TestWatcherPauseRevisionExpiryAndFailureEpisode(t *testing.T) {
 	if again, err := s.End(t.Context(), p.OwnerID, w.ID, w.RunID, "authorization_unavailable", false); err != nil || again {
 		t.Fatal("duplicate failure", err)
 	}
-	w2, err := s.Save(t.Context(), p, Request{ID: w.ID, Mutation: core.Mutation{IdempotencyKey: "pause", ExpectedVersion: w.Version}, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, Paused: true})
+	w2, err := s.Save(t.Context(), p, Request{ID: w.ID, Mutation: core.Mutation{IdempotencyKey: "pause", ExpectedVersion: w.Version}, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, State: planstate.Paused})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +160,7 @@ func TestWatcherPauseRevisionExpiryAndFailureEpisode(t *testing.T) {
 		t.Fatal("stale execution accepted")
 	}
 	expiry := time.Now().Add(-time.Second)
-	w3, err := s.Save(t.Context(), p, Request{ID: w.ID, Mutation: core.Mutation{IdempotencyKey: "expire", ExpectedVersion: w2.Version}, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, EndAt: &expiry})
+	w3, err := s.Save(t.Context(), p, Request{State: planstate.Active, ID: w.ID, Mutation: core.Mutation{IdempotencyKey: "expire", ExpectedVersion: w2.Version}, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, EndAt: &expiry})
 	if err != nil {
 		t.Fatal(err)
 	}

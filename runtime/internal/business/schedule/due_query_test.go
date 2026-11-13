@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -20,17 +21,17 @@ func TestDueQueryBoundsHistoryAndPreservesExactInstants(t *testing.T) {
 	err := db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		for i := 0; i < 1000; i++ {
 			at := now.Add(time.Hour)
-			v := Schedule{ID: core.ID(fmt.Sprint("history-", i)), OwnerID: "owner", NextAt: &at, Enabled: i%2 == 0}
+			v := Schedule{ID: core.ID(fmt.Sprint("history-", i)), OwnerID: "owner", NextAt: &at, State: []planstate.State{planstate.Active, planstate.Paused}[i%2]}
 			if err := NewRepository(db).Insert(ctx, v); err != nil {
 				return err
 			}
 		}
 		for _, v := range []Schedule{
-			{ID: "before", OwnerID: "owner", Enabled: true, NextAt: &before, Version: 1},
-			{ID: "offset", OwnerID: "other", Enabled: true, NextAt: &offset},
-			{ID: "after", OwnerID: "owner", Enabled: true, NextAt: &after},
-			{ID: "disabled", OwnerID: "owner", NextAt: &before},
-			{ID: "nil", OwnerID: "owner", Enabled: true},
+			{ID: "before", OwnerID: "owner", State: planstate.Active, NextAt: &before, Version: 1},
+			{ID: "offset", OwnerID: "other", State: planstate.Active, NextAt: &offset},
+			{ID: "after", OwnerID: "owner", State: planstate.Active, NextAt: &after},
+			{ID: "disabled", OwnerID: "owner", State: planstate.Paused, NextAt: &before},
+			{ID: "nil", OwnerID: "owner", State: planstate.Active},
 		} {
 			if err := NewRepository(db).Insert(ctx, v); err != nil {
 				return err
@@ -78,7 +79,7 @@ func BenchmarkDueHistory(b *testing.B) {
 			future := now.Add(time.Hour)
 			err = db.Write(b.Context(), func(ctx context.Context, tx persistence.Tx) error {
 				for i := 0; i < n; i++ {
-					v := Schedule{ID: core.ID(fmt.Sprint("history-", i)), OwnerID: "owner", Enabled: i%2 == 0, NextAt: &future}
+					v := Schedule{ID: core.ID(fmt.Sprint("history-", i)), OwnerID: "owner", State: []planstate.State{planstate.Active, planstate.Paused}[i%2], NextAt: &future}
 					if err := tx.Put(ctx, bucket, persistence.Key(v.OwnerID, v.ID), record(v)); err != nil {
 						return err
 					}
@@ -96,7 +97,7 @@ func BenchmarkDueHistory(b *testing.B) {
 						b.Fatal(err)
 					}
 					for _, v := range rows {
-						if v.Enabled && v.NextAt != nil && !v.NextAt.After(now) {
+						if v.State == planstate.Active && v.NextAt != nil && !v.NextAt.After(now) {
 							b.Fatal("unexpected due")
 						}
 					}

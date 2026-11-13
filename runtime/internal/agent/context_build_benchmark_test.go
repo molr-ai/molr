@@ -15,7 +15,7 @@ import (
 func contextBuildFixture() (*contextBuilder, Turn, privateContext) {
 	builder := &contextBuilder{Options{Dependencies: Dependencies{Policy: fixtureAuthorizer{}}}}
 	turn := Turn{Principal: core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant, ExecutionID: "execution"}, Event: event.AssistantEvent{ID: "event", OwnerID: "owner", AssistantID: "assistant", Kind: event.UserMessage, MessageID: "message", CreatedAt: time.Now()}}
-	turn.Checkpoint = &Checkpoint{OwnerID: "owner", AssistantID: "assistant", FormatVersion: 1}
+	turn.Checkpoint = &Checkpoint{OwnerID: "owner", AssistantID: "assistant"}
 	state := privateContext{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "history"}}}
 	return builder, turn, state
 }

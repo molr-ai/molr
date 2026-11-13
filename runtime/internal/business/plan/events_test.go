@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/todo"
 	"molr.ai/runtime/internal/core"
@@ -15,7 +16,7 @@ func TestEventsMergeRecurringOccurrencesAndBindPagination(t *testing.T) {
 	ctx := t.Context()
 	at := time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC)
 	for _, spec := range []struct{ id, rule, owner string }{{"daily", "FREQ=DAILY;COUNT=3", "owner"}, {"yearly", "FREQ=YEARLY;COUNT=3", "owner"}, {"foreign", "FREQ=DAILY", "other"}} {
-		err := schedule.NewRepository(db).Insert(ctx, schedule.Schedule{ID: core.ID(spec.id), OwnerID: core.ID(spec.owner), AssistantID: "assistant", Kind: schedule.AssistantSchedule, Title: spec.id, Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: spec.rule, MissedPolicy: schedule.Coalesce}})
+		err := schedule.NewRepository(db).Insert(ctx, schedule.Schedule{ID: core.ID(spec.id), OwnerID: core.ID(spec.owner), AssistantID: "assistant", Kind: schedule.AssistantSchedule, Title: spec.id, State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: spec.rule, MissedPolicy: schedule.Coalesce}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +84,7 @@ func TestEventsCompletionAppliesToOneOccurrence(t *testing.T) {
 	s, db := fixture(t)
 	at := time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC)
 	ref := core.Object{Kind: "schedule", ID: "recurring"}
-	err := schedule.NewRepository(db).Insert(t.Context(), schedule.Schedule{ID: ref.ID, OwnerID: "owner", Kind: schedule.Personal, Title: "daily", Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: schedule.Coalesce}})
+	err := schedule.NewRepository(db).Insert(t.Context(), schedule.Schedule{ID: ref.ID, OwnerID: "owner", Kind: schedule.Personal, Title: "daily", State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: schedule.Coalesce}})
 	if err != nil {
 		t.Fatal(err)
 	}

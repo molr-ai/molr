@@ -16,8 +16,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 )
 
-const schemaVersion uint32 = 2
-const checkpointVersion uint32 = 1
+const schemaVersion uint32 = 3
 
 // DB owns the engine and an OS-backed lock shared with offline restore. The
 // application data-directory lock can be held independently of this DB lock.
@@ -30,6 +29,7 @@ type DB struct {
 	closeErr       error
 	faultMu        sync.Mutex
 	migrationFault error
+	migrationMu    sync.Mutex
 }
 
 func Open(path string) (*DB, error) {
@@ -41,7 +41,7 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine, err := sqlitestore.Open(path)
+	engine, err := sqlitestore.OpenUninitialized(path)
 	if err != nil {
 		_ = lock.Close()
 		return nil, err
@@ -77,25 +77,72 @@ func (d *DB) Schema(ctx context.Context) (Schema, error) {
 	return value, err
 }
 func supportedSchema(s Schema) bool {
-	return s.Version == schemaVersion && s.CheckpointVersion == checkpointVersion
+	return s.Version == schemaVersion
 }
+
+// Migrate runs known steps in order before opening derived query structures.
 func (d *DB) Migrate(ctx context.Context) error {
-	return d.engine.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		current, err := d.Schema(ctx)
+	d.migrationMu.Lock()
+	defer d.migrationMu.Unlock()
+	current, err := d.Schema(ctx)
+	if err != nil {
+		return err
+	}
+	steps := map[uint32]func(context.Context, persistence.Tx) error{2: migratePlans}
+	if current.Version > schemaVersion {
+		return core.NewError(core.FailedPrecondition, "database is newer than this server")
+	}
+	if current.Version == 0 {
+		empty, err := d.engine.Empty(ctx)
 		if err != nil {
 			return err
 		}
-		if supportedSchema(current) {
-			return nil
+		if !empty {
+			return core.NewError(core.FailedPrecondition, "unversioned database requires explicit conversion")
 		}
-		if current != (Schema{}) {
-			return core.NewError(core.FailedPrecondition, "database schema is not supported by this server")
+	} else {
+		for v := current.Version; v < schemaVersion; v++ {
+			if steps[v] == nil {
+				return core.NewError(core.FailedPrecondition, "database requires a supported migration")
+			}
 		}
-		if err = tx.Put(ctx, "system", "schema", Schema{Version: schemaVersion, CheckpointVersion: checkpointVersion}); err != nil {
+	}
+	if current.Version == 2 {
+		if err := d.validateV2(ctx); err != nil {
 			return err
 		}
-		return d.migrationError()
-	})
+	}
+	if current.Version != 0 && current.Version < schemaVersion {
+		if err := d.backupBeforeMigration(ctx); err != nil {
+			return err
+		}
+	}
+	if current.Version == 0 {
+		err = d.engine.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			if err := tx.Put(ctx, "system", "schema", Schema{Version: schemaVersion}); err != nil {
+				return err
+			}
+			return d.migrationError()
+		})
+		if err != nil {
+			return err
+		}
+	}
+	for v := current.Version; v != 0 && v < schemaVersion; v++ {
+		err = d.engine.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			if err := steps[v](ctx, tx); err != nil {
+				return err
+			}
+			if err := tx.Put(ctx, "system", "schema", Schema{Version: v + 1}); err != nil {
+				return err
+			}
+			return d.migrationError()
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return d.engine.Initialize()
 }
 func (d *DB) Check(ctx context.Context) error {
 	current, err := d.Schema(ctx)

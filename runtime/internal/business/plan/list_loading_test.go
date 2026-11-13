@@ -3,6 +3,7 @@ package plan
 import (
 	"context"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -57,7 +58,7 @@ func seedListSources(ctx context.Context, store persistence.Store, count int) er
 				item = todo.Todo{ID: id, OwnerID: "owner", Title: string(id), Version: 1}
 			} else {
 				bucket = "business.schedules"
-				item = schedule.Schedule{ID: id, OwnerID: "owner", Kind: schedule.Personal, Title: string(id), Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC), Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Coalesce}}
+				item = schedule.Schedule{ID: id, OwnerID: "owner", Kind: schedule.Personal, Title: string(id), State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC), Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Coalesce}}
 			}
 			if err := tx.Put(ctx, bucket, persistence.Key("owner", id), item); err != nil {
 				return err
@@ -124,15 +125,18 @@ func TestBatchListMatchesIndividualReadsWithHiddenDependencies(t *testing.T) {
 			{ID: mixed.ID, OwnerID: "owner", AssistantID: "assistant", Title: "Visible work", Version: 1},
 			{ID: "missing", OwnerID: "owner", AssistantID: "assistant", Title: "Missing dependency", Version: 1},
 			{ID: "done", OwnerID: "owner", Completed: true, Title: "Personal done", Version: 1},
-			{ID: "paused", OwnerID: "owner", AssistantID: "assistant", Title: "Paused work", Version: 1},
+			{ID: "paused", State: planstate.Paused, OwnerID: "owner", AssistantID: "assistant", Title: "Paused work", Version: 1},
 			{ID: "unrelated", OwnerID: "owner", AssistantID: "other-assistant", Title: "Unrelated", Version: 1},
 			{ID: mixed.ID, OwnerID: "foreign", Title: "Foreign", Version: 1},
 		} {
+			if v.State == "" {
+				v.State = planstate.Active
+			}
 			if err := tx.Put(ctx, "business.todos", persistence.Key(v.OwnerID, v.ID), v); err != nil {
 				return err
 			}
 		}
-		schedule := schedule.Schedule{ID: recurring.ID, OwnerID: "owner", AssistantID: "assistant", Kind: schedule.Personal, Title: "Recurring", Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: schedule.Coalesce}}
+		schedule := schedule.Schedule{ID: recurring.ID, OwnerID: "owner", AssistantID: "assistant", Kind: schedule.Personal, Title: "Recurring", State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: schedule.Coalesce}}
 		if err := tx.Put(ctx, "business.schedules", persistence.Key("owner", schedule.ID), schedule); err != nil {
 			return err
 		}
@@ -140,7 +144,7 @@ func TestBatchListMatchesIndividualReadsWithHiddenDependencies(t *testing.T) {
 			{Ref: dep, OwnerID: "owner", Handoff: "notify", Runs: []Execution{{ID: "local-complete", State: "completed", StartedAt: at.Add(time.Hour)}}},
 			{Ref: mixed, OwnerID: "owner", Handoff: "automatic", Dependencies: []core.Object{dep}, Runs: []Execution{{ID: "inline", State: "completed", StartedAt: at}}},
 			{Ref: core.Object{Kind: "todo", ID: "missing"}, OwnerID: "owner", Dependencies: []core.Object{missing}},
-			{Ref: core.Object{Kind: "todo", ID: "paused"}, OwnerID: "owner", Paused: true},
+			{Ref: core.Object{Kind: "todo", ID: "paused"}, OwnerID: "owner"},
 		} {
 			if err := tx.Put(ctx, bucket, key(links.OwnerID, links.Ref), links); err != nil {
 				return err

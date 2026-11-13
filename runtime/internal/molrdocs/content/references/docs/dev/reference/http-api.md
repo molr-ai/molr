@@ -446,6 +446,8 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 ### 近期计划事件
 
+所有计划使用源记录的 `State=active|paused|deleted`；`Links` 只保存依赖、交接与个人执行记录。`POST /api/plans/configure` 可设置 `State=active|paused`；日程更新使用 `State`，不再使用 `Enabled`。`NextAt=null` 表示没有下一次自动触发。删除接口保留 `ID`、`Mutation` 契约，已有执行和关注事件可删除，仅未删除计划的依赖会阻止删除。删除事务同时取消未结束任务和作业，提交后通知停止执行；正常列表排除已删除计划，详情返回 `not_found`。
+
 `GET /api/plans?from=…&to=…` 返回日历摘要，日期窗口最多 125 天；省略日期返回计划摘要目录，可用 `scope=all|me|<助理 ID>` 筛选所有者，`mode=undated` 只返回无日期待办。读取限定当前账号、可见计划及其直接依赖；不可见依赖只参与就绪判断，不加入返回列表。
 
 `GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` 返回 `{Items: [{Key, At, PlanKey}], Plans: {"schedule/<id>": 摘要}, NextCursor}`。每页同一计划只传输一次；`PlanKey` 引用 `Plans`。`limit` 为 1–200，默认 50；`scope` 为 `all`、`me` 或助理 ID；`kind` 为 `all|item|event|automatic`；`state` 为 `all|open|done`。`from` 必填且包含时区偏移。
@@ -684,7 +686,7 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 
 `Plan.Kind` 使用 `todo`、`personal_schedule`、`assistant_schedule` 或 `assistant_watch`；底层引用分别为 `todo`、`schedule`、`watch`。`GET /api/plans/watches` 返回分页的持续关注摘要，支持 `scope`、`state=all|open|done`、`limit` 和 `cursor`，不受日历日期范围限制。`GET /api/plans/watch/{id}` 读取配置、状态及最近变化，执行历史复用现有计划历史接口。日历范围查询和 `/api/plans/events` 不包含 watcher。
 
-`POST /api/watches` 创建或更新，更新传入 `ID` 和预期版本；字段为 `AssistantID`、`Title`、`Instructions`、`Watcher`、可选 `StartAt`／`EndAt` 和 `Paused`。`POST /api/watches/delete` 接收 `ID` 与 mutation；已有变化历史的计划保留并暂停。创建只登记计划，实际启动和授权结果通过状态返回。协议与运行约束见 [watcher 协议](https://molr.ai/zh/docs/dev/runtime/watchers/)。
+`POST /api/watches` 创建或更新持续关注；更新携带 `ID` 和期望版本。字段包括 `AssistantID`、`Title`、`Instructions`、`Watcher`、可选的 `StartAt` / `EndAt` 以及生命周期 `State=active|paused`；`RunState` 单独描述监听进程状态。`POST /api/watches/delete` 接受 `ID` 和变更元数据，逻辑删除并停止监听、取消未结束的处理任务。创建成功只表示已登记，`RunState=running` 才表示监听已就绪。
 
 ## 助理协作
 

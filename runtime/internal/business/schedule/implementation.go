@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"molr.ai/runtime/internal/business/planstate"
 	"strconv"
 	"strings"
 	"time"
@@ -96,10 +96,14 @@ func NewService(store persistence.Store, options Options) Service {
 	return &service{store: store, repo: NewRepository(store), options: options}
 }
 func (r *repository) Get(ctx context.Context, owner, id core.ID) (Schedule, error) {
-	return persistence.Load[Schedule](ctx, r.store, bucket, persistence.Key(owner, id))
+	v, err := persistence.Load[Schedule](ctx, r.store, bucket, persistence.Key(owner, id))
+	if err == nil {
+		err = planstate.Visible(v.State)
+	}
+	return v, err
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Schedule], error) {
-	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner), {Field: "State", Op: "!=", Value: planstate.Deleted}}
 	if q.AssistantID != "" {
 		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))
 	}
@@ -126,13 +130,21 @@ func record(v Schedule) scheduleRecord {
 	return out
 }
 func (r *repository) Insert(ctx context.Context, v Schedule) error {
+	if v.State == "" {
+		v.State = planstate.Active
+	}
 	return persistence.Insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), record(v))
 }
 func (r *repository) Save(ctx context.Context, v Schedule, expected core.Version) error {
-	return persistence.SaveVersion(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), record(v), expected, func(v scheduleRecord) core.Version { return v.Version })
+	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := persistence.SaveVersion(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), record(v), expected, func(v scheduleRecord) core.Version { return v.Version }); err != nil {
+			return err
+		}
+		return planstate.RefreshHandoff(ctx, tx, v.OwnerID, core.Object{Kind: "schedule", ID: v.ID}, v.State)
+	})
 }
 func (r *repository) Delete(ctx context.Context, owner, id core.ID, expected core.Version) error {
-	return persistence.DeleteVersion[Schedule](ctx, r.store, bucket, persistence.Key(owner, id), expected, func(v Schedule) core.Version { return v.Version })
+	return planstate.Delete(ctx, r.store, owner, core.Object{Kind: "schedule", ID: id}, expected)
 }
 func (s *service) checkAssistant(ctx context.Context, p core.Principal, id core.ID) error {
 	if p.Kind == core.ActorAssistant && id != p.SubjectID {
@@ -164,7 +176,7 @@ func (s *service) Create(ctx context.Context, p core.Principal, req CreateReques
 		if err != nil {
 			return Schedule{}, err
 		}
-		v := Schedule{ID: s.id(), OwnerID: p.OwnerID, Version: 1, Kind: req.Kind, AssistantID: req.AssistantID, Title: req.Title, Instructions: req.Instructions, Trigger: req.Trigger, EndAt: req.EndAt, Enabled: nextAt != nil, NextAt: nextAt}
+		v := Schedule{ID: s.id(), OwnerID: p.OwnerID, Version: 1, Kind: req.Kind, AssistantID: req.AssistantID, Title: req.Title, Instructions: req.Instructions, Trigger: req.Trigger, EndAt: req.EndAt, State: planstate.Active, NextAt: nextAt}
 		return v, s.repo.Insert(ctx, v)
 	})
 }
@@ -216,14 +228,17 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		if err := s.checkAssistant(ctx, p, req.AssistantID); err != nil {
 			return v, err
 		}
-		triggerChanged := v.Trigger != req.Trigger || v.Enabled != req.Enabled
+		if req.State != planstate.Active && req.State != planstate.Paused {
+			return v, invalid("state")
+		}
+		triggerChanged := v.Trigger != req.Trigger
 		v.Kind = req.Kind
 		v.AssistantID = req.AssistantID
 		v.Title = req.Title
 		v.Instructions = req.Instructions
 		v.Trigger = req.Trigger
 		v.EndAt = req.EndAt
-		v.Enabled = req.Enabled
+		v.State = req.State
 		// A content-only update preserves scheduling progress. Rewinding NextAt
 		// here would replay occurrences whenever an assistant renamed a plan.
 		if triggerChanged {
@@ -231,12 +246,7 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 			if err != nil {
 				return v, err
 			}
-			if v.Enabled {
-				v.Enabled = nextAt != nil
-				v.NextAt = nextAt
-			} else {
-				v.NextAt = nil
-			}
+			v.NextAt = nextAt
 		}
 
 		v.Version++
@@ -245,24 +255,7 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 }
 func (s *service) Delete(ctx context.Context, p core.Principal, req DeleteRequest) error {
 	_, err := mutate(ctx, s, p, "delete", req.ID, req.Mutation, req, true, false, func(ctx context.Context) (struct{}, error) {
-		v, err := s.repo.Get(ctx, p.OwnerID, req.ID)
-		if err != nil {
-			return struct{}{}, err
-		}
-		_ = v
-		if err := checkPlanReferences(ctx, s.store, p.OwnerID, core.Object{Kind: "schedule", ID: req.ID}); err != nil {
-			return struct{}{}, err
-		}
-		if err := s.repo.Delete(ctx, p.OwnerID, req.ID, req.Mutation.ExpectedVersion); err != nil {
-			return struct{}{}, err
-		}
-		return struct{}{}, s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			err := tx.Delete(ctx, "business.plan-links", persistence.Key(p.OwnerID, core.ID("schedule-"+string(req.ID))))
-			if persistence.Missing(err) {
-				return nil
-			}
-			return err
-		})
+		return struct{}{}, s.repo.Delete(ctx, p.OwnerID, req.ID, req.Mutation.ExpectedVersion)
 	})
 	return err
 }
@@ -272,7 +265,7 @@ func (r *repository) Due(ctx context.Context, now time.Time, limit int) ([]Sched
 		return nil, invalid("limit")
 	}
 	return persistence.Select[Schedule](ctx, r.store, bucket, persistence.Query{
-		Where: []persistence.Filter{persistence.Eq("Enabled", true),
+		Where: []persistence.Filter{persistence.Eq("State", planstate.Active),
 			{Field: "NextAtKey", Op: ">", Value: ""},
 			{Field: "NextAtKey", Op: "<=", Value: persistence.TimeKey(now)}},
 		OrderBy: "NextAtKey", Limit: limit,
@@ -288,7 +281,7 @@ func (r *repository) RecordOccurrence(ctx context.Context, owner core.ID, v Occu
 		if schedule.Version != v.ScheduleVersion {
 			return conflict()
 		}
-		if !schedule.Enabled {
+		if schedule.State != planstate.Active {
 			return core.NewError(core.FailedPrecondition, "schedule disabled")
 		}
 		key := persistence.Key(owner, v.ScheduleID) + "/" + strconv.FormatUint(uint64(v.ScheduleVersion), 10) + "/" + v.DueAt.UTC().Format(time.RFC3339Nano)
@@ -311,44 +304,6 @@ func (r *repository) RecordOccurrence(ctx context.Context, owner core.ID, v Occu
 func validateEnd(kind Kind, start time.Time, end *time.Time) error {
 	if end != nil && (kind != Personal || !end.After(start)) {
 		return invalid("end_at")
-	}
-	return nil
-}
-
-func checkPlanReferences(ctx context.Context, store persistence.Store, owner core.ID, ref core.Object) error {
-	tasks, err := persistence.Select[struct {
-		OwnerID core.ID
-		Plan    core.Object
-	}](ctx, store, "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Plan.Kind", ref.Kind), persistence.Eq("Plan.ID", ref.ID)}, Limit: 1, Unordered: true})
-	if err != nil {
-		return err
-	}
-	for _, v := range tasks {
-		if v.OwnerID == owner && v.Plan == ref {
-			return core.NewError(core.FailedPrecondition, "pause a plan with execution history")
-		}
-	}
-	links, err := persistence.Select[struct {
-		OwnerID      core.ID
-		Ref          core.Object
-		Dependencies []core.Object
-		Runs         []json.RawMessage
-	}](ctx, store, "business.plan-links", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, Any: [][]persistence.Filter{{persistence.Eq("Ref.Kind", ref.Kind), persistence.Eq("Ref.ID", ref.ID)}, {{Field: "Dependencies", Op: "has", Value: ref.Kind + "/" + string(ref.ID)}}}})
-	if err != nil {
-		return err
-	}
-	for _, v := range links {
-		if v.OwnerID != owner {
-			continue
-		}
-		if v.Ref == ref && len(v.Runs) > 0 {
-			return core.NewError(core.FailedPrecondition, "pause a plan with execution history")
-		}
-		for _, dep := range v.Dependencies {
-			if dep == ref {
-				return core.NewError(core.FailedPrecondition, "plan has dependent arrangements")
-			}
-		}
 	}
 	return nil
 }

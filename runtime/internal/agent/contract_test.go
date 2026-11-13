@@ -118,7 +118,7 @@ func TestTDDCheckpointCompareAndSwapAndOwnerIsolation(t *testing.T) {
 	t.Parallel()
 	f := testkit.RequireFactory(t, "agent", newContractFixture)
 	ctx := testkit.Context(t)
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, FormatVersion: 1, Sequence: 1, Context: json.RawMessage(`{"step":1}`), LastEventID: f.Turn.Event.ID, SavedAt: time.Now()}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, Sequence: 1, Context: json.RawMessage(`{"step":1}`), LastEventID: f.Turn.Event.ID, SavedAt: time.Now()}
 	testkit.RequireNoError(t, f.Checkpoints.Save(ctx, cp, 0))
 	loaded, err := f.Checkpoints.Load(ctx, cp.OwnerID, cp.AssistantID)
 	testkit.RequireNoError(t, err)
@@ -142,7 +142,7 @@ func TestTDDCheckpointCompareAndSwapAndOwnerIsolation(t *testing.T) {
 		t.Fatalf("foreign checkpoint = %v", err)
 	}
 }
-func TestTDDTurnValidationSourceAndCheckpointFormat(t *testing.T) {
+func TestTDDTurnValidationSourceAndCheckpointIdentity(t *testing.T) {
 	t.Parallel()
 	// This is a pure validation test and deliberately has no implementation fixture.
 	base := Turn{Principal: core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant, ExecutionID: "run"}, Event: event.AssistantEvent{ID: "event", OwnerID: "owner", AssistantID: "assistant", Kind: event.ResumeRequested, CreatedAt: time.Now()}}
@@ -155,7 +155,7 @@ func TestTDDTurnValidationSourceAndCheckpointFormat(t *testing.T) {
 		{"missing principal", func(x *Turn) { x.Principal = core.Principal{} }, core.Unauthenticated},
 		{"assistant mismatch", func(x *Turn) { x.Event.AssistantID = "another" }, core.Forbidden},
 		{"invalid event", func(x *Turn) { x.Event.Kind = "invalid" }, core.InvalidArgument},
-		{"zero checkpoint format", func(x *Turn) { x.Checkpoint = &Checkpoint{OwnerID: "owner", AssistantID: "assistant"} }, core.InvalidArgument},
+		{"checkpoint owner mismatch", func(x *Turn) { x.Checkpoint = &Checkpoint{OwnerID: "other", AssistantID: "assistant"} }, core.Forbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) { v := base; tc.mutate(&v); testkit.RequireCode(t, v.Validate(), tc.code) })
 	}

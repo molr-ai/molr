@@ -71,7 +71,7 @@ func TestRuntimeNotificationsPreserveContentAndRecoveryMetadata(t *testing.T) {
 	f, _ := makeLoopFixture(t, nil)
 	raw, _ := json.Marshal(privateContext{Inputs: inputs})
 	turn := f.Turn
-	turn.Checkpoint = &Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: turn.Event.AssistantID, FormatVersion: 1, Context: raw}
+	turn.Checkpoint = &Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: turn.Event.AssistantID, Context: raw}
 	built, err := f.Context.Build(t.Context(), turn)
 	if err != nil || len(built) < len(want) || !reflect.DeepEqual(built[:len(want)], want) {
 		t.Fatal("new event retained system notifications", err)

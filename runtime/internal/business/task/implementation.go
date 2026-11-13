@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/notification"
 	"strconv"
 	"strings"
@@ -37,7 +38,23 @@ func (s *service) id() core.ID {
 	return newID()
 }
 func (s *service) authorize(ctx context.Context, p core.Principal, target core.Object, action policy.Action, ownerOnly bool) error {
-	return policy.Authorize(ctx, p, s.options.Authorizer, policy.CheckRequest{Target: target, Action: action}, ownerOnly)
+	if err := policy.Authorize(ctx, p, s.options.Authorizer, policy.CheckRequest{Target: target, Action: action}, ownerOnly); err != nil {
+		return err
+	}
+	if target.ID != "" {
+		v, err := s.repo.Get(ctx, p.OwnerID, target.ID)
+		if err != nil {
+			return err
+		}
+		if v.Plan.ID != "" {
+			state, err := planstate.Load(ctx, s.store, p.OwnerID, v.Plan)
+			if err != nil {
+				return err
+			}
+			return planstate.Visible(state)
+		}
+	}
+	return nil
 }
 func (s *service) read(ctx context.Context, p core.Principal, id core.ID, action policy.Action, ownerOnly bool, fn func(context.Context) error) error {
 	return s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
@@ -114,7 +131,25 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 	}
 	request := q.Page
 	q.Page = core.PageRequest{}
-	return persistence.Page[Task](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Task) bool { return true })
+	var sourceErr error
+	page, err := persistence.Page[Task](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Task) bool {
+		if v.Plan.ID == "" {
+			return true
+		}
+		state, err := planstate.Load(ctx, r.store, owner, v.Plan)
+		if persistence.Missing(err) {
+			return false
+		}
+		if err != nil {
+			sourceErr = err
+			return false
+		}
+		return state != planstate.Deleted
+	})
+	if err == nil {
+		err = sourceErr
+	}
+	return page, err
 }
 
 func (r *repository) Insert(ctx context.Context, v Task) error {

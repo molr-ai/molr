@@ -20,7 +20,7 @@ When adding a new item, you can first fill in the title, then specify the owner,
 
 Opening plan details loads execution history from newest to oldest, 20 records per page. Select “Load more history” for earlier runs. Expanding a record loads its original instructions, result, and task details. The history count shows the plan’s total executions.
 
-Completing a recurring arrangement completes a specific execution, not the entire series with a single check. Records with existing execution history or those depended upon by subsequent plans must be retained; subsequent arrangements can be paused. Plan revisions do not overwrite the instruction snapshots of old executions.
+Completing a recurring arrangement completes one occurrence. Pausing prevents future starts without interrupting an existing execution. Deleting removes the plan and its recurring series, cancels unfinished executions, and stops continuous observation. Execution history and watch events do not prevent deletion; dependencies from other undeleted plans must be removed first. Deletion is logical: underlying history and files remain, with no restore interface. Editing a plan does not overwrite prior execution snapshots.
 
 ## Handoffs and Scheduled Executions
 

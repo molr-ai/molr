@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"molr.ai/runtime/internal/business/assistant"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
@@ -134,7 +135,7 @@ func TestDependenciesRejectCyclesAndCrossOwnerAndPausePreventsHandoff(t *testing
 	ctx := context.Background()
 	a := add(t, s, "a", "")
 	b := add(t, s, "b", "assistant")
-	links, err := s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("b", 0), Ref: b, Dependencies: []core.Object{a}, Handoff: "automatic", Paused: true})
+	links, err := s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("b", 0), Ref: b, Dependencies: []core.Object{a}, Handoff: "automatic", State: planstate.Paused})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +158,7 @@ func TestDependenciesRejectCyclesAndCrossOwnerAndPausePreventsHandoff(t *testing
 	if len(tasks) != 0 {
 		t.Fatal("paused handoff executed")
 	}
-	if _, err = s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("resume", links.Version), Ref: b, Dependencies: []core.Object{a}, Handoff: "automatic"}); err != nil {
+	if _, err = s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("resume", links.Version), State: planstate.Active, Ref: b, Dependencies: []core.Object{a}, Handoff: "automatic"}); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Tick(ctx, time.Now()); err != nil {
@@ -189,7 +190,7 @@ func TestScheduledOccurrencesSharePlanAndRemainIndependent(t *testing.T) {
 	s, db := fixture(t)
 	ctx := context.Background()
 	at := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
-	source := schedule.Schedule{ID: "daily", OwnerID: "owner", Kind: schedule.AssistantSchedule, AssistantID: "assistant", Title: "Daily review", Instructions: "Review notes", Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=2", MissedPolicy: schedule.Coalesce}, Enabled: true, NextAt: &at, Version: 1}
+	source := schedule.Schedule{ID: "daily", OwnerID: "owner", Kind: schedule.AssistantSchedule, AssistantID: "assistant", Title: "Daily review", Instructions: "Review notes", Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=2", MissedPolicy: schedule.Coalesce}, State: planstate.Active, NextAt: &at, Version: 1}
 	if err := schedule.NewRepository(db).Insert(ctx, source); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +279,7 @@ func TestPausingFutureArrangementsDoesNotBlockCurrentPersonalExecution(t *testin
 	if _, err := s.Execute(ctx, owner(), ExecuteRequest{Mutation: mutation("start", 0), Ref: ref, Action: "start"}); err != nil {
 		t.Fatal(err)
 	}
-	links, err := s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("pause", 1), Ref: ref, Paused: true, Handoff: "notify"})
+	links, err := s.Configure(ctx, owner(), ConfigureRequest{Mutation: mutation("pause", 1), Ref: ref, State: planstate.Paused, Handoff: "notify"})
 	if err != nil {
 		t.Fatal(err)
 	}

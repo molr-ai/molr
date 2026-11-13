@@ -55,7 +55,7 @@ read ack
 	b.watchRuntime.run(ctx, next, "")
 	result, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 	need(t, err)
-	if result.State != "completed" || len(result.Pending) != 1 || string(result.Checkpoint) != `{"cursor":2}` {
+	if result.RunState != "completed" || len(result.Pending) != 1 || string(result.Checkpoint) != `{"cursor":2}` {
 		t.Fatalf("watcher protocol did not finish: %+v", result)
 	}
 	events, err := persistence.Select[event.AssistantEvent](t.Context(), b.store, "agent.events", persistence.Query{Where: []persistence.Filter{{Field: "Kind", Op: "in", Value: []event.Kind{event.ShellTaskFinished, event.ShellTasksRunning}}}})
@@ -77,7 +77,7 @@ sleep 30
 	b.watchRuntime.run(ctx, next, "initial-grants")
 	result, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 	need(t, err)
-	if result.State != "blocked" || result.Reason != "authorization_unavailable" || string(result.Checkpoint) != `{"cursor":7}` {
+	if result.RunState != "blocked" || result.Reason != "authorization_unavailable" || string(result.Checkpoint) != `{"cursor":7}` {
 		t.Fatalf("grant expiry: %+v", result)
 	}
 	events, err := persistence.Select[event.AssistantEvent](t.Context(), b.store, "agent.events", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", event.WatchFailed)}})
@@ -100,7 +100,7 @@ sleep 30
 		if len(tasks) > 0 {
 			current, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 			need(t, err)
-			if len(tasks) != 1 || current.State != "running" {
+			if len(tasks) != 1 || current.RunState != "running" {
 				t.Fatalf("dispatch must not require watcher exit: %+v", current)
 			}
 			return
@@ -136,7 +136,7 @@ read ack
 	b.watchRuntime.run(ctx, w, "")
 	got, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 	need(t, err)
-	if got.State != "completed" || len(got.Pending) != 1 || string(got.Checkpoint) != `{"cursor":1}` {
+	if got.RunState != "completed" || len(got.Pending) != 1 || string(got.Checkpoint) != `{"cursor":1}` {
 		t.Fatalf("remote protocol: %+v", got)
 	}
 }
@@ -180,7 +180,7 @@ func watcherGrantExtension(t *testing.T, remote bool) {
 	for {
 		current, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 		need(t, err)
-		if current.State == "running" && current.LastHealthyAt != nil {
+		if current.RunState == "running" && current.LastHealthyAt != nil {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -204,7 +204,7 @@ func watcherGrantExtension(t *testing.T, remote bool) {
 	}
 	current, err := b.Services.Watches.Get(t.Context(), p, w.ID)
 	need(t, err)
-	if current.State != "running" || current.RunID != next.RunID {
+	if current.RunState != "running" || current.RunID != next.RunID {
 		t.Fatalf("extension restarted watcher: %+v", current)
 	}
 	shortened := time.Now().Add(200 * time.Millisecond)
@@ -217,7 +217,7 @@ func watcherGrantExtension(t *testing.T, remote bool) {
 	}
 	current, err = b.Services.Watches.Get(t.Context(), p, w.ID)
 	need(t, err)
-	if current.State != "blocked" || current.Reason != "authorization_unavailable" {
+	if current.RunState != "blocked" || current.Reason != "authorization_unavailable" {
 		t.Fatalf("earlier expiry: %+v", current)
 	}
 }

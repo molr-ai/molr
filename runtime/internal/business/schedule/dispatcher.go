@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"molr.ai/runtime/internal/business/planstate"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -57,10 +58,13 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 		}
 		err = d.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 			current, err := d.repo.Get(ctx, candidate.OwnerID, candidate.ID)
+			if persistence.Missing(err) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
-			if !current.Enabled || current.Version != candidate.Version || current.NextAt == nil || !current.NextAt.Equal(*candidate.NextAt) {
+			if current.State != planstate.Active || current.Version != candidate.Version || current.NextAt == nil || !current.NextAt.Equal(*candidate.NextAt) {
 				return nil
 			}
 			if d.Ready != nil {
@@ -82,7 +86,7 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 					return err
 				}
 				if err != nil || assistant.OwnerID != current.OwnerID || assistant.State != "active" {
-					current.Enabled = false
+					current.State = planstate.Paused
 					current.NextAt = nil
 					current.Version++
 					return d.repo.Save(ctx, current, candidate.Version)
@@ -111,7 +115,6 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 				}
 			}
 			current.NextAt = batch.Cursor.NextAt
-			current.Enabled = batch.Cursor.NextAt != nil
 			current.Version++
 			if err := d.repo.Save(ctx, current, candidate.Version); err != nil {
 				return err
@@ -128,7 +131,7 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 // NextWake returns the nearest runnable occurrence. Blocked overdue schedules
 // wait for dependency changes instead of creating an immediate timer loop.
 func (d *Dispatcher) NextWake(ctx context.Context, now time.Time) (time.Time, error) {
-	rows, err := persistence.Select[Schedule](ctx, d.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true)}, Fields: []string{"ID", "OwnerID", "Kind", "NextAt"}, Unordered: true})
+	rows, err := persistence.Select[Schedule](ctx, d.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", planstate.Active)}, Fields: []string{"ID", "OwnerID", "Kind", "NextAt"}, Unordered: true})
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -139,6 +142,9 @@ func (d *Dispatcher) NextWake(ctx context.Context, now time.Time) (time.Time, er
 		}
 		if !s.NextAt.After(now) && d.Ready != nil {
 			ready, err := d.Ready(ctx, s.OwnerID, s.ID)
+			if persistence.Missing(err) {
+				continue
+			}
 			if err != nil {
 				return next, err
 			}

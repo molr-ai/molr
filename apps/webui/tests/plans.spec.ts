@@ -196,7 +196,7 @@ test('plan lists omit execution bodies and load history pages and snapshots only
 test('continuous watches share global and assistant lists without calendar occurrences',async({page},info)=>{
  await login(page);const suffix=`${info.project.name}-${Date.now()}`,a=await assistant(page,`Watch owner ${suffix}`),title=`Watch ${suffix}`;
  const compute=await post(page,'/api/resources',{Name:`Watch compute ${suffix}`,Kind:'compute',Provider:'local-sandbox'});
- const w=await post(page,'/api/watches',{Title:title,AssistantID:a.ID,Instructions:'Report relevant changes',Paused:true,Watcher:{compute_id:compute.ID,script:'read start; printf \'%s\\n\' \'{"type":"ready","version":1}\'; read ack; sleep 600'}});
+ const w=await post(page,'/api/watches',{Title:title,AssistantID:a.ID,Instructions:'Report relevant changes',State:'paused',Watcher:{compute_id:compute.ID,script:'read start; printf \'%s\\n\' \'{"type":"ready","version":1}\'; read ack; sleep 600'}});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();
  const group=page.getByRole('region',{name:'Continuous watches',exact:true});await expect(group).toContainText(title);await expect(group.locator(`[data-plan-id="${w.ID}"]`)).toHaveCount(1);
  await group.getByRole('button',{name:title,exact:true}).click();await expect(details(page,title)).toContainText('Report relevant changes');
@@ -205,4 +205,31 @@ test('continuous watches share global and assistant lists without calendar occur
  const events=await (await page.request.get(`/api/plans/events?from=${encodeURIComponent(new Date().toISOString())}`)).json();expect(Object.values(events.Plans).some((v:any)=>v.Ref.ID===w.ID)).toBe(false);
  await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toContainText(title);await expect(panel.getByRole('heading',{name:'Continuous watches',exact:true})).toBeVisible();
  await panel.getByRole('button',{name:title,exact:true}).click();await expect(panel).toContainText('Only report meaningful changes');await page.screenshot({path:info.outputPath('continuous-watch.png')});
+});
+
+test('deletion allows history, blocks dependents, and leaves no readable plan',async({page},info)=>{
+ await login(page);
+ const title=`Delete history ${info.project.name}-${Date.now()}`;
+ await post(page,'/api/todos',{Title:`Still available ${title}`});
+ const original=await post(page,'/api/todos',{Title:title});
+ const ref={Kind:'todo',ID:original.ID};
+ await post(page,'/api/plans/execute',{Ref:ref,Action:'complete',Result:'Finished preparation'});
+ const dependent=await post(page,'/api/todos',{Title:`Depends on ${title}`});
+ await post(page,'/api/plans/configure',{Ref:{Kind:'todo',ID:dependent.ID},Dependencies:[ref],Handoff:'notify',State:'paused'});
+ await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await selectPlanRange(page,/No date/);
+ await row(page,title).getByRole('button',{name:'Plan actions',exact:true}).click();
+ const remove=page.getByRole('menuitem',{name:'Delete',exact:true});await expect(remove).toHaveAttribute('aria-disabled','true');
+ await remove.focus();await expect(page.getByRole('tooltip')).toContainText('Other plans depend');await page.keyboard.press('Escape');
+ const source=await(await page.request.get(`/api/plans/todo/${dependent.ID}`)).json();
+ await post(page,'/api/todos/delete',{ID:dependent.ID,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:source.Todo.Version}});
+ await page.reload();await selectPlanRange(page,/No date/);
+ await row(page,title).getByRole('button',{name:/Execution history/}).click();await expect(details(page,title).locator('.plan-execution')).toHaveCount(1);
+ await planAction(page,title,'Delete');const confirm=page.getByRole('dialog',{name:'Delete',exact:true});await expect(confirm).toContainText('cancel its unfinished executions');await confirm.getByRole('button',{name:'Confirm',exact:true}).click();await expect(confirm).toBeHidden();
+ await expect(row(page,title)).toHaveCount(0);
+ expect((await page.request.get(`/api/plans/todo/${original.ID}`)).status()).toBe(404);
+ await page.goto(`/#/plans/${original.ID}`);await expect(page.getByRole('status').filter({hasText:'This plan has been deleted or is unavailable.'})).toBeVisible();
+ await page.screenshot({path:info.outputPath('deleted-plan.png')});
+ await page.getByRole('button',{name:'List',exact:true}).click();await selectPlanRange(page,/No date/);
+ await row(page,`Still available ${title}`).getByRole('button',{name:`Still available ${title}`,exact:true}).click();
+ await expect(details(page,`Still available ${title}`)).toBeVisible();
 });

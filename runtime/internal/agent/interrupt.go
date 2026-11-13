@@ -182,6 +182,6 @@ func (e *Engine) interruptCheckpoint(ctx context.Context, p core.Principal, id c
 	if err != nil {
 		return err
 	}
-	next := Checkpoint{OwnerID: p.OwnerID, AssistantID: id, ExecutionID: control.ID, FormatVersion: 1, Sequence: checkpoint.Sequence + 1, Context: raw, LastEventID: control.ID, SavedAt: control.CreatedAt}
+	next := Checkpoint{OwnerID: p.OwnerID, AssistantID: id, ExecutionID: control.ID, Sequence: checkpoint.Sequence + 1, Context: raw, LastEventID: control.ID, SavedAt: control.CreatedAt}
 	return e.checkpoints.Save(checkpointCause(ctx, "user_stopped"), next, checkpoint.Sequence)
 }

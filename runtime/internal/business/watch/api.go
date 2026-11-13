@@ -4,6 +4,7 @@ package watch
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
@@ -40,11 +41,11 @@ type Watch struct {
 	Title, Instructions      string
 	Watcher                  Config
 	StartAt, EndAt           *time.Time
-	Paused                   bool
+	State                    planstate.State
 	Version                  core.Version
 	AuthorizationFingerprint string
 	LastInterruptionAt       *time.Time
-	State, Reason            string
+	RunState, Reason         string
 	HandlingTaskID           core.ID
 	LastRunID                core.ID
 	RunID                    core.ID
@@ -64,7 +65,7 @@ type Request struct {
 	Title, Instructions string
 	Watcher             Config
 	StartAt, EndAt      *time.Time
-	Paused              bool
+	State               planstate.State
 }
 type Options struct {
 	Authorizer     policy.Authorizer
@@ -77,5 +78,9 @@ type Service struct {
 
 func New(store persistence.Store, options Options) *Service { return &Service{store, options} }
 func Load(ctx context.Context, store persistence.Store, owner, id core.ID) (Watch, error) {
-	return persistence.Load[Watch](ctx, store, Bucket, persistence.Key(owner, id))
+	v, err := persistence.Load[Watch](ctx, store, Bucket, persistence.Key(owner, id))
+	if err == nil {
+		err = planstate.Visible(v.State)
+	}
+	return v, err
 }

@@ -11,7 +11,7 @@ Runtime 通过已提交的计划、授权及执行变更通知和最近到期时
 
 使用 `plan_manage`，`action=create`、`mode=assistant_watch`，提供 `title`、`instructions` 和 `watcher`。`watcher` 包含 `compute_id`、`script`，以及可选的 `sandbox_id`、`directory`、`files`、`network_mode`、`network_ids`、`health_seconds`。文件和网络引用沿用 Shell 的资源规则；不接受 TTY、端口转发、Full Access 或 Shell 超时参数。当前 watcher 标准输入管道支持 Linux 和 macOS；Windows 执行端返回明确的能力错误。
 
-只有用户指定期限时才填写 `start_at`／`end_at`。计划不设置期限不等于执行权限永久有效。创建登记后由 Runtime 异步启动；检查到 `running` 才能报告已就绪。`plan_read` 返回 watcher 配置、检查点、最近事件和受阻原因。`update` 支持修改配置及 `paused`，`execute` 请求恢复；有历史时保留计划并暂停，不删除历史。持续关注不接受重复规则、日历发生点或前置交接配置。
+只有用户指定期限时才填写 `start_at`／`end_at`。计划不设置期限不等于执行权限永久有效。创建登记后由 Runtime 异步启动；检查到 `running` 才能报告已就绪。`plan_read` 返回 watcher 配置、检查点、最近事件和受阻原因。`update` 支持修改配置及生命周期 `state=active|paused`，`execute` 请求恢复；删除将计划标记为 `deleted`，停止监听并取消未结束的处理任务，历史和检查点保留。持续关注不接受重复规则、日历发生点或前置交接配置。
 
 普通命令的超时、后台提醒和 TTY 行为不因 watcher 改变。Watcher 使用受管后台执行和现有并发额度；不发送普通 Shell 的周期运行提醒或完成事件。通过计划暂停／恢复管理 watcher，Shell 入口仅可查看日志。
 

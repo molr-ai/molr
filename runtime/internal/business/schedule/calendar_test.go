@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ func TestCalendarUsesRecurrenceTimezoneAndDoesNotAdvancePausedPlan(t *testing.T)
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 10, 31, 9, 0, 0, 0, location)
-	plan := Schedule{Kind: AssistantSchedule, Enabled: false, Trigger: Trigger{StartAt: start, Timezone: "America/New_York", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, NextAt: &start}
+	plan := Schedule{Kind: AssistantSchedule, State: planstate.Paused, Trigger: Trigger{StartAt: start, Timezone: "America/New_York", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, NextAt: &start}
 	from := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	to := from.Add(4 * 24 * time.Hour)
 	times, err := CalendarTimes(context.Background(), plan, from, to)
@@ -25,7 +26,7 @@ func TestCalendarUsesRecurrenceTimezoneAndDoesNotAdvancePausedPlan(t *testing.T)
 	if times[0].UTC().Hour() != 13 || times[1].UTC().Hour() != 14 || times[2].UTC().Hour() != 14 {
 		t.Fatalf("DST changed wall clock: %v", times)
 	}
-	if plan.Enabled || !plan.NextAt.Equal(start) {
+	if plan.State == planstate.Active || !plan.NextAt.Equal(start) {
 		t.Fatal("calendar advanced plan")
 	}
 	times, err = CalendarTimes(context.Background(), plan, to, to.Add(24*time.Hour))

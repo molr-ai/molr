@@ -164,7 +164,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 		if err != nil {
 			return err
 		}
-		next := Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, LastEventID: t.Event.ID, FormatVersion: 1, Sequence: cp.Sequence + 1, SavedAt: e.options.Now().UTC(), Context: raw}
+		next := Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, LastEventID: t.Event.ID, Sequence: cp.Sequence + 1, SavedAt: e.options.Now().UTC(), Context: raw}
 		if mode == progressAlways {
 			err = e.checkpoints.Save(ctx, next, cp.Sequence)
 		} else {
@@ -343,7 +343,6 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 	base := cp
 	base.OwnerID = t.Principal.OwnerID
 	base.AssistantID = t.Event.AssistantID
-	base.FormatVersion = 1
 	t.Checkpoint = &base
 	inputs, err := e.builder.build(ctx, t, &s)
 	if err != nil {
@@ -395,7 +394,7 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 		if err != nil {
 			return err
 		}
-		next := Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, LastEventID: t.Event.ID, FormatVersion: 1, Sequence: cp.Sequence + 1, SavedAt: e.options.Now().UTC(), Context: data}
+		next := Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, LastEventID: t.Event.ID, Sequence: cp.Sequence + 1, SavedAt: e.options.Now().UTC(), Context: data}
 		if err = e.checkpoints.Save(checkpointCause(ctx, "event_received"), next, cp.Sequence); err != nil {
 			return err
 		}

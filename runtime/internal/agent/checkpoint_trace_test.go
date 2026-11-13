@@ -23,7 +23,7 @@ func TestCheckpointTraceCommitsAtomicallyAndRejectsStaleSaves(t *testing.T) {
 		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchVisible": true})
 	}))
 	repo := &checkpoints{store: db, trace: trace}
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now().UTC(), Context: json.RawMessage(`{"Inputs":[]}`)}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, Sequence: 1, SavedAt: time.Now().UTC(), Context: json.RawMessage(`{"Inputs":[]}`)}
 	// A standalone control save must not leave a run or revision after rollback.
 	err := db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		if err := repo.Save(ctx, cp, 0); err != nil {
@@ -165,7 +165,7 @@ func TestCheckpointTraceKeepsSmallSaveEventsAndFullRecoveryState(t *testing.T) {
 	}))
 	repo := &checkpoints{store: db, trace: trace}
 	raw, _ := json.Marshal(map[string]any{"Inputs": []any{map[string]string{"Role": "user", "Text": strings.Repeat("context text ", 100000)}}})
-	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, SavedAt: time.Now().UTC(), Context: raw}
+	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, SavedAt: time.Now().UTC(), Context: raw}
 	ctx := trace.Begin(t.Context(), cp.OwnerID, cp.AssistantID, cp.LastEventID, cp.ExecutionID, "user_message", 1, nil)
 	for i := uint64(0); i < 21; i++ {
 		cp.Sequence = i + 1

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/core"
@@ -19,7 +20,7 @@ func seedBrowse(t *testing.T, s *Coordinator, count int) (core.Object, time.Time
 	ref := core.Object{Kind: "schedule", ID: "series"}
 	text := strings.Repeat("snapshot-only-", 500)
 	err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		source := schedule.Schedule{ID: ref.ID, OwnerID: "owner", AssistantID: "assistant", Kind: schedule.AssistantSchedule, Title: "Recurring review", Instructions: text, Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Skip}}
+		source := schedule.Schedule{ID: ref.ID, OwnerID: "owner", AssistantID: "assistant", Kind: schedule.AssistantSchedule, Title: "Recurring review", Instructions: text, State: planstate.Active, Version: 1, Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: schedule.Skip}}
 		if err := tx.Put(ctx, "business.schedules", persistence.Key("owner", ref.ID), source); err != nil {
 			return err
 		}

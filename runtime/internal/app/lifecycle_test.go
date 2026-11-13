@@ -139,6 +139,7 @@ func init() {
 		db, err := sqlite.Open(filepath.Join(dir, "runtime.db"))
 		testkit.RequireNoError(t, err)
 		t.Cleanup(func() { _ = db.Close() })
+		testkit.RequireNoError(t, db.Migrate(testkit.Context(t)))
 		identity, err := auth.NewService(db.Store(), auth.Options{MasterKey: make([]byte, 32), Origin: "https://molr.example"})
 		testkit.RequireNoError(t, err)
 		_, err = identity.Initialize(testkit.Context(t), auth.InitializeRequest{Username: "owner", Password: core.NewSecret("strong-initial-password-123!")})

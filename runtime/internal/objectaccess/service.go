@@ -115,19 +115,19 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 		}
 		return assigned(p, v.OwnerID, v.AssistantID)
 	case "todo":
-		v, err := todo.NewRepository(s.Store).Get(ctx, p.OwnerID, o.ID)
+		v, err := persistence.Load[todo.Todo](ctx, s.Store, "business.todos", persistence.Key(p.OwnerID, o.ID))
 		if err != nil {
 			return err
 		}
 		return assigned(p, v.OwnerID, v.AssistantID)
 	case "schedule":
-		v, err := schedule.NewRepository(s.Store).Get(ctx, p.OwnerID, o.ID)
+		v, err := persistence.Load[schedule.Schedule](ctx, s.Store, "business.schedules", persistence.Key(p.OwnerID, o.ID))
 		if err != nil {
 			return err
 		}
 		return assigned(p, v.OwnerID, v.AssistantID)
 	case "watch":
-		v, err := watch.Load(ctx, s.Store, p.OwnerID, o.ID)
+		v, err := persistence.Load[watch.Watch](ctx, s.Store, watch.Bucket, persistence.Key(p.OwnerID, o.ID))
 		if err != nil {
 			return err
 		}

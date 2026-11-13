@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/notification"
@@ -68,6 +69,12 @@ func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Watch,
 }
 func (s *Service) Save(ctx context.Context, p core.Principal, r Request) (Watch, error) {
 	var out Watch
+	if r.State == "" && r.ID == "" {
+		r.State = planstate.Active
+	}
+	if r.State != planstate.Active && r.State != planstate.Paused {
+		return out, core.Invalid("state", "invalid plan state")
+	}
 	if err := validate(r); err != nil {
 		return out, err
 	}
@@ -77,7 +84,7 @@ func (s *Service) Save(ctx context.Context, p core.Principal, r Request) (Watch,
 	if err := s.authorize(ctx, p, r.ID, policy.Write); err != nil {
 		return out, err
 	}
-	if s.options.CheckAssistant != nil && (!r.Paused || r.ID == "") {
+	if s.options.CheckAssistant != nil && (r.State == planstate.Active || r.ID == "") {
 		if err := s.options.CheckAssistant(ctx, p, r.AssistantID); err != nil {
 			return out, err
 		}
@@ -89,7 +96,7 @@ func (s *Service) Save(ctx context.Context, p core.Principal, r Request) (Watch,
 		}
 		out, err = persistence.MutateReceipt(ctx, tx, "business.watch-receipts", persistence.Key(p.OwnerID, core.ID(r.Mutation.IdempotencyKey)), digest, func(ctx context.Context) (Watch, error) {
 			now := time.Now().UTC()
-			w := Watch{ID: newID(), OwnerID: p.OwnerID, CreatedAt: now, Checkpoint: json.RawMessage("null"), Pending: []Signal{}, Recent: []Signal{}, State: "pending"}
+			w := Watch{ID: newID(), OwnerID: p.OwnerID, CreatedAt: now, Checkpoint: json.RawMessage("null"), Pending: []Signal{}, Recent: []Signal{}, State: planstate.Active, RunState: "pending"}
 			if r.ID != "" {
 				var err error
 				w, err = Load(ctx, tx.Store(), p.OwnerID, r.ID)
@@ -115,16 +122,16 @@ func (s *Service) Save(ctx context.Context, p core.Principal, r Request) (Watch,
 			w.Watcher = r.Watcher
 			w.StartAt = r.StartAt
 			w.EndAt = r.EndAt
-			w.Paused = r.Paused
+			w.State = r.State
 			w.Version++
 			w.UpdatedAt = now
 			w.Failures = 0
 			w.FailureNotified = false
 			w.Reason = ""
 			w.RetryAt = nil
-			w.State = "pending"
-			if w.Paused {
-				w.State = "paused"
+			w.RunState = "pending"
+			if w.State != planstate.Active {
+				w.RunState = "paused"
 			}
 			if err := tx.Put(ctx, Bucket, persistence.Key(p.OwnerID, w.ID), w); err != nil {
 				return w, err
@@ -143,26 +150,15 @@ func (s *Service) Delete(ctx context.Context, p core.Principal, id core.ID, m co
 		return err
 	}
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		w, err := s.Get(ctx, p, id)
-		if err != nil {
+		if err := planstate.Delete(ctx, tx.Store(), p.OwnerID, core.Object{Kind: "watch", ID: id}, m.ExpectedVersion); err != nil {
 			return err
 		}
-		if w.Version != m.ExpectedVersion {
-			return core.NewError(core.Conflict, "watch changed")
-		}
-		if len(w.Pending) > 0 || len(w.Recent) > 0 {
-			return core.NewError(core.FailedPrecondition, "watch has history; pause it instead")
-		}
-		w.Paused = true
-		if err := tx.Delete(ctx, Bucket, persistence.Key(p.OwnerID, id)); err != nil {
-			return err
-		}
-		return changed(ctx, tx.Store(), w)
+		return realtime.NewStore(tx.Store()).Append(ctx, realtime.Visible{ID: newID(), OwnerID: p.OwnerID, Topic: "watch.changed", Object: core.Object{Kind: "watch", ID: id}, CreatedAt: time.Now().UTC()})
 	})
 }
 
 func changed(ctx context.Context, store persistence.Store, w Watch) error {
-	if w.Paused || w.State == "completed" {
+	if w.State != planstate.Active || w.RunState == "completed" {
 		if err := notification.Sync(ctx, store, w.OwnerID, notification.Input{Kind: "watch.failed", Source: core.Object{Kind: "watch", ID: w.ID}}, false); err != nil {
 			return err
 		}

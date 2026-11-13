@@ -59,7 +59,7 @@ func TestTDDSQLiteMigrateSchemaCheckAndClose(t *testing.T) {
 	testkit.RequireNoError(t, f.DB.Migrate(ctx))
 	first, err := f.DB.Schema(ctx)
 	testkit.RequireNoError(t, err)
-	if first.Version == 0 || first.CheckpointVersion == 0 {
+	if first.Version == 0 {
 		t.Fatal("migration left unspecified schema", first)
 	}
 	testkit.RequireNoError(t, f.DB.Migrate(ctx))

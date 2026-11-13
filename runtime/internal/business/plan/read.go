@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/planstate"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
@@ -24,7 +25,7 @@ func (s *Coordinator) Read(ctx context.Context, p core.Principal, ref core.Objec
 			return err
 		}
 		out.BlockedBy, err = s.ready(ctx, p.OwnerID, out)
-		out.Ready = len(out.BlockedBy) == 0 && !out.Links.Paused
+		out.Ready = len(out.BlockedBy) == 0 && out.State == planstate.Active
 		return err
 	})
 	return out, err

@@ -81,7 +81,7 @@ func (e *Engine) ResetContext(ctx context.Context, p core.Principal, id core.ID,
 		}
 		now := e.options.Now().UTC()
 		resetID := stableID(string(id), "context-reset", mutation.IdempotencyKey)
-		checkpoint = Checkpoint{OwnerID: p.OwnerID, AssistantID: id, ExecutionID: resetID, LastEventID: resetID, FormatVersion: 1, Sequence: expected + 1, Context: json.RawMessage(`{"Inputs":[]}`), SavedAt: now}
+		checkpoint = Checkpoint{OwnerID: p.OwnerID, AssistantID: id, ExecutionID: resetID, LastEventID: resetID, Sequence: expected + 1, Context: json.RawMessage(`{"Inputs":[]}`), SavedAt: now}
 		if err = e.checkpoints.Save(checkpointCause(ctx, "context_reset"), checkpoint, expected); err != nil {
 			return err
 		}
