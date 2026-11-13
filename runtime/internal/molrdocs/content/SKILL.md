@@ -6,8 +6,6 @@ description: >
   architecture and APIs. Use when the conversation clearly refers to Molr, including
   implicit questions about this platform. 用户询问 Molr 自身的功能、使用、配置、部署或故障时使用。
   Ordinary tasks merely performed inside Molr do not need this skill.
-metadata:
-  bundle-revision: c43148f83af06ba512d2853d5b488d0a8930a9b9e93b1569cca32ae9b85c988d
 ---
 
 # Molr documentation
