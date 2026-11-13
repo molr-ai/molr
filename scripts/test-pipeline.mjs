@@ -121,13 +121,11 @@ test('installer acceptance rejects wrong identities, paths and altered final byt
   manifest.artifacts[0].file = file; save(); writeFileSync(join(root, file), 'corrupt');
   assert.throws(() => validatePackageManifest(root, expected));
 });
-test('CI includes every native target, both browser platforms, and a non-skippable final gate', () => {
+test('CI retains complete release coverage and only complete validation produces release evidence', t => {
   const read = name => yaml.load(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), 'utf8'));
   const ci = read('ci'), native = read('native-build'), release = read('release-build'), desktop = read('release-desktop');
   assert(ci.on.pull_request !== undefined); assert(ci.on.workflow_dispatch !== undefined);
-  assert.deepEqual(ci.on.push.branches, ['main']);
   assert.equal(ci.on.pull_request?.paths, undefined);
-  assert.deepEqual(ci.jobs.browser.strategy.matrix.runner, ['ubuntu-24.04', 'macos-15']);
   assert.deepEqual(ci.jobs.browser.strategy.matrix.project, ['desktop', 'mobile']);
   for (const wf of [native, desktop]) {
     assert.equal(wf.jobs[wf === native ? 'native' : 'desktop'].strategy.matrix, '${{ fromJSON(inputs.matrix) }}');
@@ -137,12 +135,41 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert.equal(ci.jobs.native.with.matrix, '${{ needs.prepare.outputs.matrix }}');
   assert.equal(release.jobs.native.with.matrix, release.jobs.desktop.with.matrix);
   assert.deepEqual(ci.jobs.passed.needs.sort(), ['prepare', 'source', 'assets', 'native', 'browser', 'webui', 'webui-integration', 'installer'].sort());
-  assert.equal(ci.jobs.passed.name, ciJob());
   assert.equal(ci.jobs.passed.steps[0].name, ciStep('${{ needs.prepare.outputs.commit }}'));
   assert(release.jobs.assets.needs.includes('ci'));
   assert(release.jobs.publish.needs.includes('ci'));
   assert(read('release').jobs.website.if.includes("'stable'"));
   assert.equal(read('nightly').jobs.website, undefined);
+  const root = mkdtempSync(join(tmpdir(), 'molr-ci-gate-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const evidence = join(root, 'ci-validation.json');
+  const gate = ci.jobs.passed.steps[0].run.trim().match(/^node -e '([^']+)'$/)[1];
+  const execute = (event, results) => {
+    rmSync(evidence, { force: true });
+    const result = spawnSync(process.execPath, ['-e', gate], {
+      cwd: root, encoding: 'utf8',
+      env: { ...process.env, EVENT_NAME: event, RESULTS: JSON.stringify(results), COMMIT: commit },
+    });
+    assert.ifError(result.error);
+    return result;
+  };
+  for (const event of ['pull_request', 'workflow_dispatch']) {
+    const results = Object.fromEntries(ci.jobs.passed.needs.map(name => [name, { result: name === 'installer' && event === 'pull_request' ? 'skipped' : 'success' }]));
+    assert.equal(execute(event, results).status, 0);
+    if (event === 'workflow_dispatch') assert.equal(JSON.parse(readFileSync(evidence, 'utf8')).commit, commit);
+    else assert.throws(() => readFileSync(evidence), { code: 'ENOENT' });
+    for (const name of ci.jobs.passed.needs) {
+      for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
+        if (result === results[name].result) continue;
+        assert.notEqual(execute(event, { ...results, [name]: { result } }).status, 0);
+        assert.throws(() => readFileSync(evidence), { code: 'ENOENT' });
+      }
+      const missing = { ...results };
+      delete missing[name];
+      assert.notEqual(execute(event, missing).status, 0);
+    }
+  }
+  assert.notEqual(execute('unexpected', {}).status, 0);
 });
 
 test('both CI providers exercise the PTY lifecycle on every native installer platform', () => {
@@ -256,11 +283,8 @@ test('Gitea validates selected native packages from shared assets and enforces t
   assert(ci.on.pull_request !== undefined);
   assert.equal(ci.on.pull_request?.paths, undefined);
   assert(ci.on.workflow_dispatch !== undefined);
-  assert.deepEqual(ci.on.push.branches, ['main']);
   const identity = ci.jobs.source.steps.find(step => step.id === 'identity');
   assert(identity.run.includes('node scripts/gitea-ci-plan.mjs'));
-  assert.equal(identity.env.MOLR_CI_PLATFORMS, "${{ github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}");
-  assert.equal(identity.env.MOLR_CI_INSTALLERS, "${{ github.event.inputs.installers || vars.MOLR_CI_INSTALLERS || 'enabled' }}");
   for (const key of ['platforms', 'installers']) assert.equal(ci.on.workflow_dispatch.inputs[key].default, '');
   const plan = giteaCIPlan();
   const { matrix } = plan;

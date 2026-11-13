@@ -1,9 +1,7 @@
 name: CI
-run-name: CI v3 ${{ inputs.commit || github.sha }}
+run-name: ${{ github.event_name == 'pull_request' && 'PR checks' || 'CI v3' }} ${{ inputs.commit || github.sha }}
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       commit:
@@ -30,6 +28,7 @@ jobs:
           fetch-depth: 0
       - id: identity
         env:
+          EVENT_NAME: ${{ github.event_name }}
           DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
           REQUESTED_COMMIT: ${{ inputs.commit }}
         run: |
@@ -42,7 +41,11 @@ jobs:
             git merge-base --is-ancestor "$commit" origin/main
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
-          node --input-type=module -e 'import {nativeBuildMatrix} from "./scripts/release-lib.mjs"; console.log("matrix="+JSON.stringify(nativeBuildMatrix()));' >> "$GITHUB_OUTPUT"
+          node --input-type=module -e '
+          import {nativeBuildMatrix} from "./scripts/release-lib.mjs";
+          const matrix = nativeBuildMatrix();
+          if (process.env.EVENT_NAME === "pull_request") matrix.include = matrix.include.filter(p => p.os === "linux" && p.arch === "amd64");
+          console.log("matrix=" + JSON.stringify(matrix));' >> "$GITHUB_OUTPUT"
   source:
     needs: prepare
     runs-on: ubuntu-24.04
@@ -76,13 +79,14 @@ jobs:
       version: 0.1.0-local
       prefix: ci-
       validate: true
+      package-desktop: ${{ github.event_name != 'pull_request' }}
       matrix: ${{ needs.prepare.outputs.matrix }}
   browser:
     needs: [prepare, source]
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        runner: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04","macos-15"]') }}
         project: [desktop, mobile]
     runs-on: ${{ matrix.runner }}
     steps:
@@ -191,13 +195,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
   installer:
+    if: ${{ github.event_name != 'pull_request' }}
     needs: [prepare, native]
     uses: ./.github/workflows/installer-acceptance.yml
     with:
       artifact-prefix: ci-runtime-
       ref: ${{ needs.prepare.outputs.commit }}
   passed:
-    name: CI passed v3
+    name: ${{ github.event_name == 'pull_request' && 'PR checks passed' || 'CI passed v3' }}
     needs: [prepare, source, assets, native, browser, webui, webui-integration, installer]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
@@ -205,10 +210,22 @@ jobs:
       - name: Validated ${{ needs.prepare.outputs.commit }}
         env:
           RESULTS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
           COMMIT: ${{ needs.prepare.outputs.commit }}
         run: |
-          node -e 'const n=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(n)) if(job.result!=="success") throw Error(name+": "+job.result); require("node:fs").writeFileSync("ci-validation.json",JSON.stringify({schema:2,commit:process.env.COMMIT,run_id:process.env.GITHUB_RUN_ID,run_attempt:process.env.GITHUB_RUN_ATTEMPT,groups:Object.keys(n)},null,2));'
-      - uses: actions/upload-artifact@v7
+          node -e '
+          const results = JSON.parse(process.env.RESULTS);
+          const event = process.env.EVENT_NAME;
+          if (!["pull_request", "workflow_dispatch"].includes(event)) throw Error("Unexpected CI event: " + event);
+          const groups = ["prepare", "source", "assets", "native", "browser", "webui", "webui-integration", "installer"];
+          for (const name of groups) {
+            const expected = name === "installer" && event === "pull_request" ? "skipped" : "success";
+            if (results[name]?.result !== expected) throw Error(name + ": " + results[name]?.result + " (expected " + expected + ")");
+          }
+          if (event === "workflow_dispatch") require("node:fs").writeFileSync("ci-validation.json", JSON.stringify({schema:2,commit:process.env.COMMIT,run_id:process.env.GITHUB_RUN_ID,run_attempt:process.env.GITHUB_RUN_ATTEMPT,groups},null,2));
+          console.log(event === "pull_request" ? "PR checks passed" : "Complete CI passed");'
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: ci-validation

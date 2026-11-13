@@ -1,21 +1,25 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` 在所有 PR、`main` 推送及手动触发时运行 CI，默认覆盖全部平台，也可按下文选择范围。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由五个平台的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。Linux AMD64 和 macOS ARM64 分别执行浏览器测试，四个独立安装任务验证 Unix Runtime 包；本次选择的所有任务成功后 `Gitea CI passed` 才通过。共享前端、Runtime 安装包和桌面安装包保留七天。
+`.gitea/workflows/ci.yml` 在 PR 和手动触发时运行。PR 固定使用 Linux AMD64，保留源码检查、前端构建、Runtime 测试与 `go vet`、桌面单元测试和 Electron 运行测试，以及桌面／手机浏览器业务测试；不执行桌面安装包打包、成品验证或独立 Runtime 安装验收。PR 必需检查使用 `Gitea PR checks passed`。
+
+手动运行默认覆盖全部平台，也可按下文选择范围。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由选中的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。全平台范围包括五个原生任务、Linux AMD64 和 macOS ARM64 浏览器测试，以及四个独立 Unix Runtime 安装任务。本次选中的任务全部成功后 `Gitea CI passed` 才通过。生成的共享前端、Runtime 包和桌面安装包保留七天。
 
 浏览器矩阵按平台和桌面／手机项目拆分，WebUI 任务各使用独立 Runtime 与数据。UI Design 在两个项目中执行，官网测试只在各平台的桌面任务执行一次。Linux 另执行完整 WebUI 桌面／手机套件，使用委派沙盒服务，并分别执行 MCP、插件 HTTP 专项及共享生产产物的懒加载测试。GPU 用例需要显式配置硬件。浏览器组被选中时属于必需门禁，断言失败会阻止最终检查通过。
 
 桌面验收已并入同一个工作流，不按 PR 路径跳过，也没有单独的 `desktop.yml` 入口。原生矩阵复用 `nativeBuildMatrix()`，按选择的平台过滤，并将 runner 名称转换为下表的本地标签。发布继续由 `.github/workflows/` 管理，其发布门禁仍检查 GitHub 自己的 CI 记录。
 
+`main` 推送不自动重复运行完整 CI。合并前应将 PR 分支更新到最新 `main` 并通过 CI；后续更新分支时重新验证。发布时由 GitHub 发布门禁验证最终提交，缺少可复用记录时自动触发完整 CI，见[CI 与构建复用](../releasing/releases.md#ci-与构建复用)。
+
 ## 选择 CI 范围
 
-在仓库 **设置 → Actions → Variables** 配置默认范围；PR 和 `main` 推送自动采用这些变量。手动运行 `Gitea CI` 时可填写同名含义的输入覆盖本次运行，输入留空则沿用仓库变量。未配置时保持全平台验收。
+在仓库 **设置 → Actions → Variables** 配置手动运行的默认范围；PR 固定使用上述精简范围，不采用这些变量。手动运行 `Gitea CI` 时可填写同名含义的输入覆盖本次运行，输入留空则沿用仓库变量。手动运行未配置时保持全平台验收。
 
 | 仓库变量 | 手动输入 | 可选值 | 默认 |
 | --- | --- | --- | --- |
 | `MOLR_CI_PLATFORMS` | `platforms` | `all`，或逗号分隔的 `linux-amd64`、`linux-arm64`、`macos-amd64`、`macos-arm64`、`windows-amd64` | `all` |
 | `MOLR_CI_INSTALLERS` | `installers` | `enabled` / `disabled`，控制独立 Runtime 安装验收 | `enabled` |
 
-只有一台 Linux AMD64 构建 runner 时，设置：
+手动验收只有一台 Linux AMD64 构建 runner 时，设置：
 
 ```text
 MOLR_CI_PLATFORMS=linux-amd64
@@ -101,6 +105,6 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 1. 手动触发 `Gitea CI`，核对日志中的选择范围，确认源码检查、共享前端构建和所有选中的任务通过。全平台验收显式填写 `platforms=all`、`installers=enabled`，应包含五个原生任务、四个浏览器任务及四个独立安装任务；独立安装任务须完成 server、sandbox 两种模式验收。已选任务失败、取消或意外跳过时，最终门禁必须失败。
 2. 检查所选平台的桌面安装包均实际完成解包／安装、应用启动和包内 Runtime 生命周期验收，并能下载对应的 `ci-desktop-*` 和 Unix `ci-runtime-*` 产物。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
-3. 用普通 PR 验证按仓库变量自动选择 CI 范围，不应出现按路径跳过桌面验收的情况。单机接入时验证未选平台不进入等待队列，独立安装组按配置跳过；增加其他 runner 后再扩大变量中的范围并验证。
+3. 用普通 PR 验证固定的 Linux AMD64 范围：桌面和手机业务测试均执行，桌面打包与成品验证不执行，独立安装组跳过，其他平台不进入等待队列。分支保护使用 `Gitea PR checks passed`；原先要求 `Gitea CI passed` 的配置需同步更新。
 
 语法检查与本地测试不等于 Gitea 实跑通过。首次运行需核对服务器、runner、action 镜像具体版本和产物传输结果，日志及实际部署配置保存在私有内部资料中。
