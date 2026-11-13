@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Alert } from '@molr/ui';
 import QRCode from 'qrcode';
+import './channel-qr-code.css';
 
 export function LocalQRCode({ value, label }: { value: string; label: string }) {
  const qr = useMemo(() => { try { return QRCode.create(value, { errorCorrectionLevel: 'M' }); } catch { return null; } }, [value]);

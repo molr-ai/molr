@@ -296,7 +296,7 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 
 - `POST /api/auth/login-links`：已登录所有者提供 `name`、`target_path`、`expires_in`（60–86400 秒）和用途为 `login_link.create` 的身份验证证明。默认 UI 为 1 小时，另外提供 15 分钟、24 小时。返回 `link` 元数据和仅本次可见的 `value`；数据库只保存 Token 摘要。
 - `GET /api/auth/login-links` 返回分页元数据，包括 `UsedAt`、`RevokedAt`、`ExpiresAt` 和 `PendingMFAUntil`（仅等待 MFA 时有值）；不返回凭证。`DELETE /api/auth/login-links/{id}` 撤销链接，也使其待完成的 MFA challenge 失效，不影响已签发的会话。
-- WebUI 使用 `#/login?token=…`，读取后立即从地址栏清除，Token 不写入 localStorage/sessionStorage，不放进 HTTP URL。页面取得预登录 CSRF 后，POST 到 `/api/auth/login-links/preview`，请求体只含 `token`。预览只返回真实 `expires_at`，不消费链接、不签发会话；无效、过期、已使用或已撤销的链接返回 401。该接口与登录接口使用相同的 Origin、预登录 CSRF、限流和 no-store 保护。确认页显示一次性使用说明与到期时间；只有用户点击确认后才重新取得预登录 CSRF，并 POST 到 `/api/auth/login-links/redeem`，提交 `token`、`device_id`、`client_type` 和 `device_name`。兑换时重新验证状态，防止预览后被撤销或过期的链接登录。
+- WebUI 使用 `#/login?token=…`，读取后立即从地址栏清除，Token 不写入 localStorage/sessionStorage，不放进 HTTP URL。页面取得预登录 CSRF 后，POST 到 `/api/auth/login-links/preview`，请求体只含 `token`。预览只返回真实 `expires_at`，不消费链接、不签发会话；无效、过期、已使用或已撤销的链接返回 401。该接口与登录接口使用相同的 Origin、预登录 CSRF、限流和 no-store 保护。确认页显示一次性使用说明与到期时间，并提供本机确认和二维码两种模式。二维码由内存中原凭据在本地编码，切换模式不请求兑换、不延长有效期；页面使用到期定时器隐藏过期二维码与确认操作，无周期状态查询。只有用户点击确认后才重新取得预登录 CSRF，并 POST 到 `/api/auth/login-links/redeem`，提交 `token`、`device_id`、`client_type` 和 `device_name`。兑换时重新验证状态，防止预览后被撤销或过期的链接登录。
 - 兑换复用登录的 Origin、CSRF、限流和 HttpOnly Cookie 规则。服务器将 Token 消费与签发会话/MFA challenge 放在同一事务中；并发兑换只成功一次。启用 MFA 时仍调用现有 `/api/auth/mfa/complete`，错误验证码不会签发会话。
 - 目标由创建时服务器保存，限定为已知站内路由；不接受 URL 中的跳转覆盖。链接有效期与会话有效期独立。修改密码、本机账号恢复、备份恢复均使旧链接失效。
 - 链接无效、已使用、已撤销或过期统一返回 `unauthenticated`，页面提示获取新链接或使用密码登录。请求响应禁止缓存，审计记录仅含链接 ID，不含原始 Token。

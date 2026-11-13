@@ -1,12 +1,13 @@
 import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ModalPresence, Badge, Button, Dialog, SegmentedControl, Select, TextField } from '@molr/ui';
-import { Copy, Plus } from 'lucide-react';
+import { ModalPresence, Badge, Button, Dialog, SegmentedControl, Select, Tabs, TextField, copyTextToClipboard } from '@molr/ui';
+import { Check, Copy, Plus } from 'lucide-react';
 import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { Confirm, EditDialog, Loading } from '../components/common';
+import { LocalQRCode } from './ChannelQRCode';
 
 type LoginLink = { ID: string; Name: string; TargetPath: string; CreatedAt: string; ExpiresAt: string; UsedAt: string | null; RevokedAt: string | null; PendingMFAUntil?: string | null };
 type IssuedLink = { link: LoginLink; value: string };
@@ -76,12 +77,52 @@ function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued:
   </EditDialog>{verification.dialog}</>;
 }
 function IssuedLoginLink({ url, link, onClose }: { url: string; link: LoginLink; onClose: () => void }) {
-  const { t, locale } = useCopy(), input = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState(false), [manual, setManual] = useState(false);
+  const { t, locale } = useCopy(), address = useRef<HTMLElement>(null);
+  const [mode, setMode] = useState<'link' | 'qr'>('link');
+  const [copiedAt, setCopiedAt] = useState<number | null>(null), [manual, setManual] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const copied = copiedAt !== null;
+  const host = new URL(url).hostname;
+  const localOnly = host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || host.startsWith('127.');
+  useEffect(() => {
+    if (copiedAt === null) return;
+    function resetCopied() { setCopiedAt(null); }
+    if (mode !== 'link' || document.visibilityState === 'hidden') { resetCopied(); return; }
+    const timer = window.setTimeout(resetCopied, 2500);
+    function onVisibility() { if (document.visibilityState === 'hidden') resetCopied(); }
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', onVisibility); };
+  }, [copiedAt, mode]);
+  async function copy() {
+    if (copying) return;
+    setCopying(true);
+    try {
+      await copyTextToClipboard(url);
+      setCopiedAt(Date.now()); setManual(false);
+    } catch {
+      setCopiedAt(null); setManual(true);
+      if (address.current) {
+        address.current.focus({ preventScroll: true });
+        const range = document.createRange(); range.selectNodeContents(address.current);
+        const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+      }
+    } finally { setCopying(false); }
+  }
   return <Dialog open title={t.loginLinks.ready} onOpenChange={open => { if (!open) onClose(); }} footer={<Button onClick={onClose}>{t.close}</Button>}>
-    <p>{t.loginLinks.singleUse}</p><p className="muted">{t.loginLinks.expires}: {new Date(link.ExpiresAt).toLocaleString(locale)}</p>
-    <TextField ref={input} label={t.loginLinks.title} value={url} readOnly onFocus={event => event.target.select()} />
-    <Button variant="secondary" onClick={() => { void navigator.clipboard?.writeText(url).then(() => setCopied(true)).catch(() => { setManual(true); input.current?.select(); }); if (!navigator.clipboard) { setManual(true); input.current?.select(); } }}><Copy />{copied ? t.loginLinks.copied : t.loginLinks.copy}</Button>
-    {manual && <p role="status">{t.loginLinks.manualCopy}</p>}
+    <div className="login-link-result">
+      <Tabs className="login-link-result-tabs" label={t.loginLinks.format} value={mode} onValueChange={value => { setMode(value); setManual(false); }} items={[
+        { value: 'link', label: t.loginLinks.linkMode, content: <div className="login-link-address" role="group" aria-label={t.loginLinks.title}>
+          <div className="login-link-address-header"><span>{t.loginLinks.title}</span><Button className="login-link-copy-button" variant="ghost" size="sm" disabled={copying} onClick={() => void copy()}>{copied ? <Check /> : <Copy />}{copied ? t.loginLinks.copied : t.loginLinks.copy}</Button></div>
+          <code ref={address} tabIndex={0} aria-label={t.loginLinks.title}>{url}</code>
+        </div> },
+        { value: 'qr', label: t.loginLinks.qrMode, content: mode === 'qr' ? <div className="login-link-qr"><LocalQRCode value={url} label={t.loginLinks.qrCode} /></div> : null },
+      ]} />
+      <div className="login-link-result-notes">
+        <dl className="login-link-expiry"><dt>{t.loginLinks.expires}</dt><dd><time dateTime={link.ExpiresAt}>{new Date(link.ExpiresAt).toLocaleString(locale)}</time></dd></dl>
+        {(localOnly || mode === 'qr') && <p className="login-link-access-help">{localOnly ? t.loginLinks.localAddress : t.loginLinks.scanHelp}</p>}
+        <p role="status" className={manual && mode === 'link' ? 'login-link-copy-help' : 'ui-sr-only'}>{manual && mode === 'link' ? t.loginLinks.manualCopy : copied ? t.loginLinks.copied : ''}</p>
+        <div className="login-link-sharing-help"><p className="login-link-once">{t.loginLinks.shownOnce}</p><p>{t.loginLinks.singleUse}</p></div>
+      </div>
+    </div>
   </Dialog>;
 }

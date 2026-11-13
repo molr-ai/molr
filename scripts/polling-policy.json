@@ -265,12 +265,22 @@
       ]
     },
     {
-      "file": "apps/webui/src/interfaces/official/features/LoginLinksSettings.tsx",
-      "reason": "Login-link status changes at the known expiry boundary.",
-      "budget": "One timer for the earliest displayed expiry; remove expired/unmounted timers.",
-      "tests": [],
+      "file": "apps/webui/src/interfaces/official/features/LoginLinkLogin.tsx",
+      "reason": "A previewed one-time login credential expires at a known server-provided deadline; hide its QR code and confirmation action at that deadline.",
+      "budget": "At most one local deadline timer while the confirmation page is visible and awaiting user action; zero periodic HTTP or storage reads. Hidden pages cancel the timer and recheck time on visibility. Confirmation, navigation and unmount cancel the timer.",
+      "tests": ["apps/webui/tests/login-link-qr-mode.spec.ts"],
       "sites": [
-        {"scope": "sync", "api": "setTimeout", "delay": "Math.min(next - current, 2147483647)", "loops": 0}
+        {"scope": "syncExpiry", "api": "setTimeout", "delay": "Date.parse(expires) - Date.now()", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/LoginLinksSettings.tsx",
+      "reason": "Login-link status changes at the known expiry boundary; an explicit copy action has short-lived visual feedback.",
+      "budget": "One timer for the earliest displayed expiry, plus at most one 2500ms local feedback timeout after a successful copy. Repeated copies replace the timeout; changing tabs, hiding the page or unmounting cancels feedback. No periodic HTTP or storage work.",
+      "tests": ["apps/webui/tests/login-links.spec.ts", "apps/webui/tests/login-link-expiry-wakeup.spec.ts"],
+      "sites": [
+        {"scope": "sync", "api": "setTimeout", "delay": "Math.min(next - current, 2147483647)", "loops": 0},
+        {"scope": "IssuedLoginLink", "api": "setTimeout", "delay": "2500", "loops": 0}
       ]
     },
     {

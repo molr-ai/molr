@@ -10,7 +10,7 @@ On macOS, the desktop connection manager and connected WebUI use native traffic 
 
 The first administrator logs in using the account created during initialization; regular members use accounts created by the administrator. There are no default username/password combinations or public registration entry points. If two-factor authentication is enabled, enter the verification code or recovery code as prompted on the page.
 
-Existing logged-in devices can generate a one-time link via "User Settings → Security → Login Links" for logging in on another device. The link has an expiration time and can only be used once; if MFA is enabled, two-factor authentication is still required. Links should only be given to the individual or explicitly authorized users, and should not be placed in public documents.
+Existing logged-in devices can generate a one-time link via "User Settings → Security → Login Links" with a QR code for another device. Scan it with your phone and select **Confirm sign-in** without typing the address or account credentials. The phone must be able to reach the server address; see [account security](guides/account-security.md) for details. The link has an expiration time and can only be used once; if MFA is enabled, two-factor authentication is still required. Links should only be given to the individual or explicitly authorized users, and should not be placed in public documents.
 
 ## Choose an available model
 
