@@ -1,6 +1,11 @@
 import { openSandboxDetails } from './sandbox-navigation';
 import { test, expect } from '@playwright/test';
 
+test.afterEach(async ({ page }) => {
+  // Finish in-flight route.fetch() callbacks before context teardown disposes their responses.
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 test('compute status separates disabled, controlled execution, full access and offline snapshots', async ({ page }) => {
   await page.route(url => url.pathname === '/api/assistants', route => route.fulfill({ json: { Items: [{ ID: 'compute-status-assistant', Name: 'Compute status assistant', State: 'active', Version: 1 }], HasMore: false } }));
   let state = 'available', enabled = true, shell = false, fullAccess = true, reason = 'sandbox_helper_unavailable';
