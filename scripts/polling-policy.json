@@ -2,6 +2,15 @@
   "version": 1,
   "files": [
     {
+      "file": "scripts/watch-release.mjs",
+      "reason": "Explicitly requested external GitHub Actions observation has no CLI completion subscription or known completion deadline; no local webhook receiver is required.",
+      "budget": "Only while the foreground command runs: at most two sequential read-only GETs per round, rounds at least 60s apart, 120 rounds / 240 GETs and 2h total; each request <=45s and remaining deadline. Transient failures back off 60/120/240/300s. Completion, cancellation and permanent errors stop all requests and timers. No database or local product-state polling.",
+      "tests": ["scripts/test-release-watch.mjs"],
+      "sites": [
+        {"scope": "watchRelease", "api": "promise:setTimeout", "delay": "ms", "loops": 0}
+      ]
+    },
+    {
       "file": "apps/desktop/src/main/index.ts",
       "reason": "Desktop startup/login lifetime and daily external update checks need timers.",
       "budget": "Zero-delay UI teardown, finite 14min login lifetime, and one daily update check; no fast database polling.",

@@ -108,6 +108,8 @@ export function collectSites(root = repository) {
       for (const path of sourceFiles(root, `${group}/${entry.name}/src`)) sites.push(...scanTypeScript(relative(root, path).replaceAll('\\', '/'), readFileSync(path, 'utf8')));
     }
   }
+  const releaseWatcher = 'scripts/watch-release.mjs';
+  if (existsSync(join(root, releaseWatcher))) sites.push(...scanTypeScript(releaseWatcher, readFileSync(join(root, releaseWatcher), 'utf8')));
   return sites.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 export function signature(site) { return { scope: site.scope, api: site.api, delay: site.delay, loops: site.loops }; }

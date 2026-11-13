@@ -23,7 +23,7 @@ const contracts = [
 ];
 try {
   run(go, ['test', '-count=1', 'scripts/polling-go/main.go', 'scripts/polling-go/main_test.go']);
-  run(process.execPath, ['--test', 'scripts/test-polling-guard.mjs', 'scripts/test-polling-behavior.mjs']);
+  run(process.execPath, ['--test', 'scripts/test-polling-guard.mjs', 'scripts/test-polling-behavior.mjs', 'scripts/test-release-watch.mjs']);
   const expected = [], packages = new Set(), names = new Set();
   for (const [file, tests] of contracts) {
     const source = readFileSync(join(repository, 'runtime', file), 'utf8');

@@ -146,6 +146,21 @@ GitHub 与 Gitea CI 的源码任务运行 `npm run check:base-version`：基础�
 
 两种入口共用 `release-build.yml`：固定 commit → 复用或补跑完整 CI → 共享前端构建 → 原生 Runtime 构建 → 安装验收与桌面打包／签名／公证／产物验收 → 汇总产物 → 创建草稿 → 上传并核对附件 → 发布 → 验证公开附件 → 正式版刷新官网。
 
+### 观察发布进度
+
+推送版本 tag 后，从 GitHub Actions 打开对应的 Release 运行，使用标准命令跟踪直到整个工作流结束。当前项目也可只传运行 ID；其他仓库加 `--repo owner/repo`：
+
+```bash
+npm run release:watch -- https://github.com/owner/repo/actions/runs/123456
+npm run release:watch -- 123456
+```
+
+命令需要已认证的 GitHub CLI（`gh`），只读取指定运行及其最新 attempt 的任务状态，显示当前步骤、失败任务链接和汇总。正式版要等 OSS 镜像、容器发布和官网同步全部结束；GitHub Release 已公开不代表整个流程成功。它不创建标签、不发布附件、不重跑或取消远端任务。退出码为成功 `0`、远端工作流失败／取消 `1`、查询错误或观察超时 `2`、本地中断 `130`。超时或 Ctrl+C 后可以用同一链接恢复观察；远端运行继续执行。单个 attempt 超过 100 个任务时停止并要求查看运行链接，避免把不完整任务列表当成完整结果。
+
+这是外部状态观察的轮询例外：CLI 没有 GitHub Actions 完成订阅，也没有已知完成时刻，使用者无需部署 webhook 接收器。仅在前台命令运行期间启用，每轮最多两次串行只读 GET，正常轮次至少间隔 60 秒；最多 120 轮、240 次请求、两小时。每次请求最多 45 秒且不超过剩余观察期限；网络、限流和服务暂时错误按 60／120／240／300 秒退避。认证、响应格式等永久错误直接退出；结束或取消后释放定时器和查询子进程。预算登记在 `scripts/polling-policy.json`；`scripts/test-release-watch.mjs` 用虚拟时间和实际调用计数覆盖空闲、变化、整体完成、失败、退避、截止与取消，并纳入 `test:polling` 和 `test:release-flow`。
+
+### 构建与恢复
+
 构建要求干净检出、仓库指定 Go 版本与 `CGO_ENABLED=0`，检查 Linux 静态 ELF 或 macOS Mach-O/有效代码签名、架构、VCS commit 和 `vcs.modified=false`。构建时间取 commit 时间，tar 的时间、用户和组信息固定，便于同 commit 重试。四个平台必须全部成功；Linux 要求隔离沙盒，macOS 按无隔离能力验收，不能以编译成功替代安装验收。`0.1.0-local` 等本地构建允许未提交修改，不进入正式发布清单。
 
 发布附件包含两个架构包及 SHA-256、经过源码发布检查的源码包及 SHA-256、`manifest.json`。`install.sh` 由官网统一提供，用于下载、校验并调用包内安装器；Release 不再附带脚本或在 manifest 中记录脚本 URL、摘要。手动安装直接校验并解压归档，运行 `./bin/molr-setup`。版本和附件保持不可变。已有同名附件时只接受摘要相同的内容，不覆盖；已完成发布的同 commit 版本直接跳过构建。创建草稿直接使用 GitHub API 返回的 release ID，附件上传和发布均按该 ID 操作，不依赖刚创建的草稿立即出现在列表中。正式版和预发布版创建前验证远端 tag 已存在；nightly 允许发布时创建 tag。草稿上传失败可重新运行原工作流的失败任务，复用构建 artifacts；重新完整运行会校验已存在附件，存在差异时需要检查原因或使用新版本。RC 转正式版使用新的正式版 tag 和构建。
