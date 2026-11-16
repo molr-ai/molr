@@ -34,7 +34,7 @@ export function ChatComposerContainer({
 }) {
   const [draft, updateDraft] = useDraft(assistant.ID);
   const { t, locale } = useCopy();
-  const { invalidateTopics } = useData();
+  const { invalidateTopics, files: fileCache } = useData();
   const action = useAction();
   const permissions = useQuery<PermissionRequest[]>(
     `/api/permission-requests?assistant_id=${assistant.ID}`,
@@ -62,6 +62,7 @@ export function ChatComposerContainer({
     setUploading(true);
     const file = new File([pending.text], pending.name, { type: 'text/plain;charset=utf-8' });
     void api.upload(file, pending.id).then(info => {
+      fileCache.remember(info);
       updateDraft(current => current.pendingTexts?.some(item => item.id === pending.id) ? {
         ...current, files: [...current.files, info], pendingTexts: current.pendingTexts.filter(item => item.id !== pending.id),
       } : current);
@@ -69,7 +70,7 @@ export function ChatComposerContainer({
       setFailedTexts(current => [...current, pending.id]);
       setNotice(t.chat.uploadError);
     }).finally(() => { textUpload.current = false; setUploading(false); });
-  }, [draft.pendingTexts, failedTexts, uploading, chatReadOnly, archived, action.busy, updateDraft, t.chat.uploadError]);
+  }, [draft.pendingTexts, failedTexts, uploading, chatReadOnly, archived, action.busy, updateDraft, fileCache, t.chat.uploadError]);
   function attachText(text: string) {
     if (chatReadOnly || archived) return;
     if (draft.files.length + pendingTexts.length >= 5 || new Blob([text]).size > 20 * 1024 * 1024) {
@@ -327,8 +328,11 @@ export function ChatComposerContainer({
     setUploading(true);
     const added: FileInfo[] = [];
     try {
-      for (const file of files)
-        added.push(await api.upload(file, mutationKey()));
+      for (const file of files) {
+        const info = await api.upload(file, mutationKey());
+        fileCache.remember(info);
+        added.push(info);
+      }
     } catch {
       setNotice(t.chat.uploadError);
     } finally {

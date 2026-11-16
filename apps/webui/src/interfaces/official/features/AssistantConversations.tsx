@@ -1,3 +1,4 @@
+import { useCachedFiles } from '../../../use-cached-files';
 import { Activity, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { AssistantAvatar, Badge, Button, ChatMessage, DropdownMenu, EmptyState, IconButton, ModalPresence } from '@molr/ui';
@@ -99,7 +100,7 @@ function CollaborationHistory({ conversation, names, assistantID }: { conversati
 }
 function AttachmentLink({ id }: { id: string }) {
   const { locale } = useCopy();
-  const file = useQuery<{ Name: string }>(`/api/files/${id}`, false, 0);
+  const file = useCachedFiles([id], false);
   useErrorToast(file.error, file.reload);
-  return <a href={`/api/files/${encodeURIComponent(id)}/content`} download>{file.data?.Name ?? (locale === 'zh' ? '下载附件' : 'Download attachment')}</a>;
+  return <a href={`/api/files/${encodeURIComponent(id)}/content`} download>{file.files[0]?.Name ?? (locale === 'zh' ? '下载附件' : 'Download attachment')}</a>;
 }

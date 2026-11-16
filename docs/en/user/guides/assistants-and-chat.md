@@ -36,6 +36,8 @@ Main navigation and assistant list text is excluded from select-all and drag sel
 
 Messages support Markdown, attachments, and result references. The copy button copies the original message text; attachment reading and downloading are protected by permissions.
 
+Switching assistants reuses loaded messages, attachment metadata and image previews within the current page. Ordinary attachment bodies are still read or downloaded on demand. Unused content may be evicted when the cache fills; reloading the page or signing out discards the cache.
+
 WebUI and the desktop app limit message bodies to 4000 characters. A paste exceeding 4000 characters, reaching 20 lines, or overflowing the body after replacing the current selection becomes a complete `.txt` attachment. Existing body text remains available for instructions. Send attachments with text or on their own; the message body does not include their full contents, which the assistant reads through attachment and file tools as needed. Failed uploads retain the original text for retry or removal. Assistant and theme switches preserve the account-scoped draft; when browser storage is unavailable, it survives only in page memory. Each message allows five attachments of up to 20 MiB each; limit failures explicitly report that the file was not added.
 
 Below assistant messages, you can like or dislike; clicking again cancels, or you can switch to the other feedback; it is retained after refresh if saved. When selected, the sleeve is solid color and the palm is light-filled; like is red, dislike is gray. There is a brief animation when activated; if the system or user settings enable reduced motion, it switches statically.

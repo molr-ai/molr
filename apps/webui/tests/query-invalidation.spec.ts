@@ -21,6 +21,7 @@ test('queries retain conversation, assistant and independent detail scopes', () 
 });
 
 test('message events preserve exact-message reconciliation and fallback refresh', () => {
+  expect(eventInvalidation({ Topic: 'file.deleted', Object: { ID: 'file' } })).toEqual({ topics: ['files:file'] });
   const message = { Object: { ID: 'message' }, ConversationID: 'chat' };
   expect(eventInvalidation({ ...message, Topic: 'message.feedback' })).toEqual({ messageID: 'message', topics: [] });
   for (const Topic of ['message.accepted', 'message.read']) {

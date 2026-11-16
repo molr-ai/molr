@@ -1,7 +1,7 @@
 import { useMutation } from '../../../use-mutation';
 import { useChatChannel } from './use-chat-channel';
 import { ChatComposerContainer } from './ChatComposerContainer';
-import { useFilePreviews } from './use-file-previews';
+import { useCachedFiles } from '../../../use-cached-files';
 import { FolderOpen } from 'lucide-react';
 import { useErrorToast } from '../../../error-toasts';
 import { AssistantNotifications } from '../../../notifications/AssistantNotifications';
@@ -34,7 +34,6 @@ import type {
   Assistant,
   Conversation,
   ExpediteStatus,
-  FileInfo,
 } from '@molr/sdk';
 import { useCopy, useData, useQuery, useSession } from '../../../state';
 import { useChatHistory } from '../../../use-chat-history';
@@ -619,57 +618,26 @@ export function Chat({
 }
 export function Attachment({ id }: { id: string }) {
   const { t } = useCopy(),
-    file = useQuery<FileInfo>(`/api/files/${id}`);
+    file = useCachedFiles([id], false);
   useErrorToast(file.error, file.reload);
   return (
     <div className="attachment">
-      {file.data && (
+      {file.files[0] && (
         <a href={`/api/files/${encodeURIComponent(id)}/content`} download>
           <Download size={16} />
-          {file.data.Name}
-          <small>{Math.ceil(file.data.Size / 1024)} KB</small>
+          {file.files[0].Name}
+          <small>{Math.ceil(file.files[0].Size / 1024)} KB</small>
         </a>
       )}
-      {file.loading && !file.data && <span>{t.loading}</span>}
+      {file.loading && !file.files[0] && <span>{t.loading}</span>}
     </div>
   );
 }
 
 function MessageAttachments({ ids }: { ids: string[] }) {
   const { t } = useCopy();
-  const [files, setFiles] = useState<FileInfo[]>([]),
-    [error, setError] = useState<unknown>(null),
-    [loading, setLoading] = useState(true),
-    [attempt, setAttempt] = useState(0);
-  const attachments = useFilePreviews(files);
-  const key = JSON.stringify(ids);
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    setFiles([]);
-    void Promise.allSettled(
-      (JSON.parse(key) as string[]).map((id) =>
-        api.get<FileInfo>(
-          `/api/files/${encodeURIComponent(id)}`,
-          controller.signal,
-        ),
-      ),
-    ).then((results) => {
-      if (controller.signal.aborted) return;
-      setFiles(
-        results.flatMap((result) =>
-          result.status === 'fulfilled' ? [result.value] : [],
-        ),
-      );
-      setError(
-        results.find((result) => result.status === 'rejected')?.reason ?? null,
-      );
-      setLoading(false);
-    });
-    return () => controller.abort();
-  }, [key, attempt]);
-  useErrorToast(error, () => setAttempt((value) => value + 1));
+  const { attachments, error, loading, reload } = useCachedFiles(ids);
+  useErrorToast(error, reload);
   return (
     <div>
       {loading && <span>{t.loading}</span>}
