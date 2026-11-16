@@ -6,12 +6,12 @@
 .assistant-list:not(.assistant-list--mobile) button[data-assistant-id] { border-radius: var(--radius-control); }
 .assistant-list__copy { flex: 1; min-width: 0; }
 .assistant-list__copy strong, .assistant-list__copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.assistant-list__copy strong { font-size: 12px; font-weight: 550; }
+.assistant-list__copy strong { font-size: var(--text-sm); font-weight: 550; }
 @media not all and (--molr-mobile) {
   .assistant-list:not(.assistant-list--mobile) button[data-assistant-id]:not([aria-current]):not(:hover) .assistant-list__copy strong { color: var(--color-text-muted); }
 }
-.assistant-list__copy small { margin-top: 2px; color: var(--color-text-muted); font-size: 10px; }
-.assistant-list__empty { padding: 12px; color: var(--color-text-muted); font-size: 11px; }
+.assistant-list__copy small { margin-top: 2px; color: var(--color-text-muted); font-size: var(--text-xs); }
+.assistant-list__empty { padding: 12px; color: var(--color-text-muted); font-size: var(--text-xs); }
 .assistant-list.assistant-list--empty { display: flex; align-items: center; justify-content: center; }
 .assistant-list--empty .assistant-list__empty { width: 100%; padding: 0; }
 .assistant-list__empty .ui-empty { min-height: 0; padding: 32px 12px; }
@@ -21,8 +21,8 @@
 .assistant-list__empty .ui-empty__action { margin-top: 16px; }
 .assistant-list__pin { display: inline-flex; flex-shrink: 0; color: var(--color-text-muted); }
 
-.ui-assistant-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: var(--color-primary); color: var(--color-on-primary); font-size: 14px; font-weight: 600; }
-.assistant-list .assistant-unread { display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--color-notification); color: var(--color-white); font: 10px/1 var(--font-sans); font-variant-numeric: tabular-nums; flex-shrink: 0; margin-left: auto; }
+.ui-assistant-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: var(--color-primary); color: var(--color-on-primary); font-size: var(--text-sm); font-weight: 600; }
+.assistant-list .assistant-unread { display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--color-notification); color: var(--color-white); font: var(--text-xs)/1 var(--font-sans); font-variant-numeric: tabular-nums; flex-shrink: 0; margin-left: auto; }
 
 .assistant-avatar-art { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; overflow: hidden; }
 .ui-chat-avatar .assistant-avatar-art { width: 100%; height: 100%; }

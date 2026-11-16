@@ -17,7 +17,7 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
   const { locale } = useCopy(), copy = pluginCopy[locale], { theme } = useTheme(), host = useUIHost();
   const administrator = useSession().principal?.User?.Administrator === true;
   const preferences = useQuery<Settings>('/api/settings');
-  const palette = preferences.data?.Palette, reducedMotion = preferences.data?.ReducedMotion, preferencesReady = !!preferences.data;
+  const fontSize = preferences.data?.FontSize, palette = preferences.data?.Palette, reducedMotion = preferences.data?.ReducedMotion, preferencesReady = !!preferences.data;
   const frame = useRef<HTMLIFrameElement>(null), [attempt, retry] = useState(0), [document, setDocument] = useState<{ key: string; html: string } | null>(null), [error, setError] = useState(false), [ready, setReady] = useState(false);
   const refKey = JSON.stringify(reference);
   const stableRef = useMemo(() => reference, [refKey]);
@@ -61,14 +61,14 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
       };
       const tokens: Record<string, string> = {};
       const styles = getComputedStyle(window.document.documentElement);
-      for (const key of ['--color-background', '--color-surface', '--color-text', '--color-text-muted', '--color-border', '--color-primary', '--color-on-primary', '--color-positive', '--color-selected-bg', '--color-focus', '--color-neutral-bg', '--color-positive-bg', '--radius-control', '--font-sans']) tokens[key] = styles.getPropertyValue(key);
-      frame.current!.contentWindow!.postMessage({ type: 'molr.plugin.connect', context: { apiVersion: 2, locale, theme, reducedMotion: window.document.documentElement.dataset.reducedMotion === 'true', tokens } }, '*', [channel.port2]);
+      for (const key of ['--color-background', '--color-surface', '--color-text', '--color-text-muted', '--color-border', '--color-primary', '--color-on-primary', '--color-positive', '--color-selected-bg', '--color-focus', '--color-neutral-bg', '--color-positive-bg', '--radius-control', '--font-sans', '--font-mono', '--text-xs', '--text-sm', '--text-base', '--text-lg', '--text-xl']) tokens[key] = styles.getPropertyValue(key);
+      frame.current!.contentWindow!.postMessage({ type: 'molr.plugin.connect', context: { apiVersion: 2, locale, theme, fontSize, reducedMotion: window.document.documentElement.dataset.reducedMotion === 'true', tokens } }, '*', [channel.port2]);
       window.clearTimeout(timer); setReady(true);
     }
     window.addEventListener('message', connect);
     return () => { disposed = true; window.clearTimeout(timer); port?.close(); window.removeEventListener('message', connect); };
-  }, [url, stableRef, locale, theme, palette, reducedMotion, revision]);
+  }, [url, stableRef, locale, theme, palette, fontSize, reducedMotion, revision]);
   return <section className="plugin-frame"><PageHeader title={title} icon={<PanelsTopLeft />} leading={reference.Kind === 'page' ? <IconButton label={copy.extensions} onClick={() => { location.hash = '/extensions'; }}><ChevronLeft size={18} /></IconButton> : undefined} actions={administrator && <IconButton label={copy.recover} onClick={() => { location.hash = '/extensions'; }}><Settings2 size={18} /></IconButton>} />
-    {error || preferences.error ? <div className="plugin-notice" role="alert"><h2>{copy.unavailable}</h2><p>{copy.permission}</p><Button onClick={() => retry(n => n + 1)}>{copy.retry}</Button></div> : <>{!ready && <p role="status">{copy.loading}</p>}{url && <iframe key={`${url}:${locale}:${theme}:${palette}:${reducedMotion}:${revision}`} ref={frame} title={title} src={url} hidden={!ready} data-ready={ready} sandbox="allow-scripts" referrerPolicy="no-referrer" />}</>}
+    {error || preferences.error ? <div className="plugin-notice" role="alert"><h2>{copy.unavailable}</h2><p>{copy.permission}</p><Button onClick={() => retry(n => n + 1)}>{copy.retry}</Button></div> : <>{!ready && <p role="status">{copy.loading}</p>}{url && <iframe key={`${url}:${locale}:${theme}:${palette}:${fontSize}:${reducedMotion}:${revision}`} ref={frame} title={title} src={url} hidden={!ready} data-ready={ready} sandbox="allow-scripts" referrerPolicy="no-referrer" />}</>}
   </section>;
 }

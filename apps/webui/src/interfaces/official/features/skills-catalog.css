@@ -3,9 +3,9 @@
 .skills-catalog-actions { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .skills-catalog-actions .select { min-width: 0; max-width: 220px; }
 .skills-catalog .tools-catalog-copy strong { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
-.skills-catalog .tools-catalog-state { color: var(--color-text-muted); font-size: 11px; font-weight: 400; }
+.skills-catalog .tools-catalog-state { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 400; }
 .skills-catalog-instructions { min-width: 0; }
-.skills-catalog-instructions h3 { margin: 0 0 12px; font-size: 13px; font-weight: 550; }
+.skills-catalog-instructions h3 { margin: 0 0 12px; font-size: var(--text-sm); font-weight: 550; }
 @media (--molr-mobile) {
   .skills-catalog-toolbar { align-items: stretch; }
   .skills-catalog-toolbar .tools-catalog-filters { flex-basis: 100%; }

@@ -213,3 +213,34 @@ func migratePlanReceipts(ctx context.Context, tx persistence.Tx) error {
 	}
 	return nil
 }
+
+// Version 4 adds the account font preference without rewriting other settings.
+func migrateFontSize(ctx context.Context, tx persistence.Tx) error {
+	if err := migrateRows(ctx, tx, "business.settings", func(row persistence.Record) error {
+		var data map[string]json.RawMessage
+		if err := json.Unmarshal(row.Data, &data); err != nil {
+			return err
+		}
+		data["FontSize"] = json.RawMessage(`"standard"`)
+		return tx.Put(ctx, "business.settings", row.Key, data)
+	}); err != nil {
+		return err
+	}
+	return migrateRows(ctx, tx, "business.settings.receipts", func(row persistence.Record) error {
+		var receipt map[string]json.RawMessage
+		if err := json.Unmarshal(row.Data, &receipt); err != nil {
+			return err
+		}
+		var result map[string]json.RawMessage
+		if err := json.Unmarshal(receipt["Result"], &result); err != nil {
+			return err
+		}
+		// Export receipts share this bucket and do not contain account settings.
+		if result["Theme"] == nil {
+			return nil
+		}
+		result["FontSize"] = json.RawMessage(`"standard"`)
+		receipt["Result"], _ = json.Marshal(result)
+		return tx.Put(ctx, "business.settings.receipts", row.Key, receipt)
+	})
+}

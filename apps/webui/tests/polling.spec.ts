@@ -86,3 +86,22 @@ test('read-only POSTs do not emit mutations, writes still do', async ({ page }) 
   expect(changes.afterRead).toEqual([]);
   expect(changes.afterWrite).toEqual(['/api/assistants/a/shell-tasks']);
 });
+
+test('account settings remain idle until an event and stop after unsubscribe', async ({ page }) => {
+ await page.evaluate(async () => {
+  const storePath = '/src/query-store.ts', policyPath = '/src/query-policy.ts';
+  const { QueryStore } = await import(storePath), { queryInterval } = await import(policyPath);
+  const s = window as any; s.calls = 0; s.store = new QueryStore();
+  s.load = async () => { s.calls++; return { FontSize: 'standard' }; };
+  s.release = s.store.subscribe('settings', () => {}, queryInterval('/api/settings'));
+  s.store.refresh('settings', 0, s.load);
+ });
+ await page.clock.runFor(600_000);
+ expect(await page.evaluate(() => (window as any).calls)).toBe(1);
+ await page.evaluate(() => { const s = window as any; s.store.refresh('settings', 1, s.load); });
+ expect(await page.evaluate(() => (window as any).calls)).toBe(2);
+ await page.evaluate(() => (window as any).release());
+ await page.clock.runFor(600_000);
+ expect(await page.evaluate(() => (window as any).calls)).toBe(2);
+ await page.evaluate(() => (window as any).store.clear());
+});

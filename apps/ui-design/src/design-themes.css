@@ -1,7 +1,7 @@
 .design-palette-select { width: 120px; }
-.theme-studio__intro, .theme-studio__current { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; }
+.theme-studio__intro, .theme-studio__current { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; font-size: var(--text-xs); }
 .theme-studio__intro { margin-bottom: 18px; }
-.theme-studio__intro > span:last-child, .theme-studio__current > span { color: var(--color-text-muted); font-size: 11px; }
+.theme-studio__intro > span:last-child, .theme-studio__current > span { color: var(--color-text-muted); font-size: var(--text-xs); }
 .theme-studio__current { margin: 24px 0 16px; padding-top: 22px; border-top: 1px solid var(--color-border); }
 .theme-studio__current strong { font-weight: 550; }
 .theme-studio__current strong span { font-weight: 400; color: var(--color-text-muted); }

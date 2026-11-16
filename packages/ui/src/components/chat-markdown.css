@@ -1,4 +1,4 @@
-.ui-chat-markdown { min-width: 0; font-size: var(--text-sm); line-height: 1.85; }
+.ui-chat-markdown { min-width: 0; font-size: var(--text-base); line-height: 1.75; }
 .ui-chat-markdown > :first-child { margin-top: 0; }
 .ui-chat-markdown > :last-child { margin-bottom: 0; }
 .ui-chat-markdown p, .ui-chat-markdown ul, .ui-chat-markdown ol, .ui-chat-markdown blockquote, .ui-chat-markdown pre, .ui-chat-markdown__table { margin: 12px 0; }

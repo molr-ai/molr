@@ -1,6 +1,6 @@
 /** Bundle into a standalone plugin HTML. The host supplies identity and scope. */
 import type { PluginConnection, PluginUserSettings } from './plugins';
-export type PluginContext = { apiVersion: 2; locale: 'zh' | 'en'; theme: 'light' | 'dark'; reducedMotion: boolean; tokens: Record<string, string> };
+export type PluginContext = { apiVersion: 2; locale: 'zh' | 'en'; theme: 'light' | 'dark'; reducedMotion: boolean; fontSize: 'small' | 'standard' | 'large'; tokens: Record<string, string> };
 export type PluginHost = {
   context: PluginContext;
   plans: { list: () => Promise<unknown> };

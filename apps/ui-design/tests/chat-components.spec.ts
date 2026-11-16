@@ -208,3 +208,19 @@ test('pasted images share attachment previews and a keyboard-accessible multi-im
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('font preferences resize the live composer and code without losing the draft', async ({ page }) => {
+  const composer = example(page, 'Message composer');
+  const input = composer.getByRole('textbox', { name: 'Message your assistant' });
+  const draft = 'A long message that wraps across the available width. '.repeat(4);
+  await input.fill(draft);
+  for (const [size, pixels] of [['small', 14], ['standard', 16], ['large', 18]] as const) {
+    await page.evaluate(size => { document.documentElement.dataset.fontSize = size; }, size);
+    await expect(input).toHaveCSS('font-size', `${pixels}px`);
+    await expect(input).toHaveValue(draft);
+    await expect.poll(() => input.evaluate(el => {
+      const style = getComputedStyle(el);
+      return el.clientHeight >= Math.min(parseFloat(style.maxHeight), el.scrollHeight) - 1;
+    })).toBe(true);
+  }
+});

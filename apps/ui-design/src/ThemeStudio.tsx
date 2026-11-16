@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { PalettePicker } from '@molr/ui';
+import { PalettePicker, SegmentedControl } from '@molr/ui';
 import type { Theme } from '@molr/ui';
 import type { Locale } from './messages';
 import { designThemes } from './design-themes';
@@ -25,6 +25,7 @@ function isDark(hex: string) {
 
 export function ThemeStudio({ locale, palette, onChange, theme, copied, onCopy }: Props & { theme: Theme; copied: string | null; onCopy: (color: string) => void }) {
   const [colors, setColors] = useState<string[]>([]);
+  const [fontSize, setFontSize] = useState<'small' | 'standard' | 'large'>(() => (document.documentElement.dataset.fontSize as 'small' | 'standard' | 'large') || 'standard');
   useEffect(() => {
     const style = getComputedStyle(document.documentElement);
     setColors(roles.map(role => style.getPropertyValue(`--color-${role.token}`).trim().toUpperCase()));
@@ -32,6 +33,7 @@ export function ThemeStudio({ locale, palette, onChange, theme, copied, onCopy }
   const current = designThemes.find(item => item.id === palette)!;
   return <div className="theme-studio">
     <div className="theme-studio__intro"><span>{locale === 'zh' ? '选择一种心情，让整个界面随之改变。' : 'A different mood for every workspace.'}</span><span>{locale === 'zh' ? '5 套配色 · 明暗双模式' : '5 palettes · Light & dark'}</span></div>
+    <SegmentedControl size="sm" label={locale === 'zh' ? '字体大小' : 'Font size'} value={fontSize} options={(['small', 'standard', 'large'] as const).map((value, i) => ({ value, label: (locale === 'zh' ? ['小', '标准', '大'] : ['Small', 'Standard', 'Large'])[i] }))} onValueChange={value => { setFontSize(value); document.documentElement.dataset.fontSize = value; }} />
     <PalettePicker locale={locale} palette={palette} onChange={onChange} theme={theme} />
     <div className="theme-studio__current" aria-live="polite"><strong>{current[locale]} <span>/ {theme === 'dark' ? locale === 'zh' ? '深色' : 'Dark' : locale === 'zh' ? '浅色' : 'Light'}</span></strong><span>{locale === 'zh' ? '实时应用 · 自动记住你的选择' : 'Applied live · Your choice is saved'}</span></div>
     <div className="palette">

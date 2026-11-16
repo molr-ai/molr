@@ -1,6 +1,6 @@
 .host-programs { display: grid; gap: 12px; min-width: 0; font-size: var(--text-xs); line-height: 1.7; }
-.host-programs-heading h3, .host-programs-row summary strong { font-size: 13px; font-weight: 550; }
-.host-programs > small { font-size: 11px; }
+.host-programs-heading h3, .host-programs-row summary strong { font-size: var(--text-sm); font-weight: 550; }
+.host-programs > small { font-size: var(--text-xs); }
 .host-programs-heading, .host-programs-row, .host-programs-search { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .host-programs-search { flex-wrap: wrap; align-items: end; }
 .host-programs-search > :first-child { flex: 1 1 200px; min-width: 0; }

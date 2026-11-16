@@ -155,7 +155,12 @@ export function Chat({
     if (!element) return;
     const observer = new ResizeObserver(updateScrollPosition);
     observer.observe(element);
-    return () => observer.disconnect();
+    const typography = new MutationObserver(() => {
+      if (bottom.current) element.scrollTop = element.scrollHeight;
+      updateScrollPosition();
+    });
+    typography.observe(document.documentElement, { attributes: true, attributeFilter: ['data-font-size'] });
+    return () => { observer.disconnect(); typography.disconnect(); };
   }, []);
   useLayoutEffect(() => {
     const element = log.current;

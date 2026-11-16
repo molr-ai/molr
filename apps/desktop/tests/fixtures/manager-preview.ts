@@ -3,7 +3,7 @@ import type { DesktopAPI, DesktopState } from '../../src/shared';
 const scenario = new URLSearchParams(location.search).get('scenario') ?? 'list';
 const installed = ['list', 'stopped', 'update', 'service-newer', 'different', 'unknown'].includes(scenario);
 const state: DesktopState = {
-  appearance: { theme: (localStorage.getItem('molr-theme') || 'system') as AppAppearance['theme'], palette: (localStorage.getItem('molr-desktop-palette') || 'forest') as AppAppearance['palette'] },
+  appearance: { fontSize: 'standard', theme: (localStorage.getItem('molr-theme') || 'system') as AppAppearance['theme'], palette: (localStorage.getItem('molr-desktop-palette') || 'forest') as AppAppearance['palette'] },
   connections: [ ...(installed ? [{ id: 'local', name: '这台电脑', url: 'http://127.0.0.1:8787', kind: 'managed-local' as const, allowHTTP: true }] : []), ...(scenario !== 'empty' ? [{ id: 'remote', name: '工作服务器', url: 'https://molr.example.com', kind: 'remote' as const, allowHTTP: false }] : []) ],
   view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: true, installed, state: installed ? scenario === 'stopped' ? 'inactive' : 'running' : 'missing', version: scenario === 'service-newer' ? '0.3.0' : scenario === 'different' ? '0.2.0+custom' : scenario === 'unknown' ? undefined : '0.1.0', bundledVersion: ['update', 'service-newer', 'different'].includes(scenario) ? '0.2.0' : '0.1.0' }, version: '交互预览', platform: new URLSearchParams(location.search).get('platform') || 'linux', window: { maximized: false, fullscreen: new URLSearchParams(location.search).get('fullscreen') === '1' },
 };

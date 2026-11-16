@@ -378,6 +378,8 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 
 ### 插件显示
 
+字号：`Settings.FontSize` 接受 `small`、`standard`、`large`，新账号默认为 `standard`。更新沿用设置版本校验；成功提交发布账号范围的 `settings.changed` 事件。已有数据由数据库迁移补齐默认值；空值和未知值拒绝写入。
+
 插件显示：`Settings.PluginsVisible` 为账号级布尔偏好，默认 `false`，通过现有 `GET /api/settings` 和设置更新接口读写。仅控制 WebUI 展示，不改变插件安装、启停、授权或工具执行。
 
 ## 模型与首次配置

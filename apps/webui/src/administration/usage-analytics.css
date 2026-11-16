@@ -28,7 +28,7 @@
 .usage-day:disabled { opacity: .25; cursor: default; }
 .usage-day[data-unknown="true"] { border: 1px dashed var(--color-text-muted); }
 .usage-day[data-active="true"]::after { content: ''; position: absolute; bottom: 1px; width: 3px; height: 3px; border-radius: var(--radius-pill); background: currentColor; }
-.usage-day-mark { position: absolute; font-size: 9px; line-height: 1; }
+.usage-day-mark { position: absolute; font-size: var(--text-xs); line-height: 1; }
 .usage-day:hover:not(:disabled),.usage-day[aria-pressed="true"] { outline: 2px solid var(--color-text); outline-offset: 1px; z-index: 1; }
 .usage-day:focus-visible,.usage-legend-cell:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; z-index: 2; }
 .usage-day-tooltip { display: block; white-space: pre-line; }

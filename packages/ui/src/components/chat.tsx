@@ -136,7 +136,9 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
         frame = requestAnimationFrame(() => resizeComposer(el));
       }
     });
-    observer.observe(el); return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+    const typography = new MutationObserver(() => resizeComposer(el));
+    typography.observe(document.documentElement, { attributes: true, attributeFilter: ['data-font-size'] });
+    observer.observe(el); return () => { observer.disconnect(); typography.disconnect(); cancelAnimationFrame(frame); };
   }, [locked]);
   const [focused, setFocused] = useState(false), [dismissed, setDismissed] = useState<string | null>(null), [activeCommand, setActiveCommand] = useState(0), [caret, setCaret] = useState(0);
   useLayoutEffect(() => { if (textarea.current && document.activeElement === textarea.current) setCaret(textarea.current.selectionStart); }, [value]);
@@ -196,7 +198,10 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
 }
 
 function resizeComposer(el: HTMLTextAreaElement) {
+  const style = getComputedStyle(el);
+  const minimum = parseFloat(style.lineHeight) + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const maximum = parseFloat(style.maxHeight);
   el.style.height = '0px';
-  el.style.height = `${el.value ? Math.min(180, Math.max(28, el.scrollHeight)) : 28}px`;
-  el.style.overflowY = el.scrollHeight > 180 ? 'auto' : 'hidden';
+  el.style.height = `${Math.min(maximum, Math.max(minimum, el.scrollHeight))}px`;
+  el.style.overflowY = el.scrollHeight > maximum ? 'auto' : 'hidden';
 }

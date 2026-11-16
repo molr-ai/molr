@@ -13,8 +13,8 @@ export function AppAppearanceSync() {
     if (!sync || !data) return;
     let current = true;
     setError(null);
-    void sync({ theme: data.Theme, palette: data.Palette || 'forest' }).catch(error => { if (current) setError(error); });
+    void sync({ theme: data.Theme, palette: data.Palette || 'forest', fontSize: data.FontSize }).catch(error => { if (current) setError(error); });
     return () => { current = false; };
-  }, [sync, data?.Theme, data?.Palette]);
+  }, [sync, data?.Theme, data?.Palette, data?.FontSize]);
   return null;
 }

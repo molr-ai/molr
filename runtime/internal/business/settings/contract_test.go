@@ -262,3 +262,48 @@ func TestUIThemePersistsPerOwnerAndSurvivesLegacyUpdates(t *testing.T) {
 		t.Fatal("could not restore default")
 	}
 }
+
+func TestFontSizePersistsValidatesAndIsolatesAccounts(t *testing.T) {
+	f := testkit.RequireFactory(t, "settings", newContractFixture)
+	ctx := testkit.Context(t)
+	current, err := f.Service.Get(ctx, owner())
+	if err != nil || current.FontSize != FontStandard {
+		t.Fatal(current, err)
+	}
+	for _, size := range []FontSize{FontSmall, FontLarge, FontStandard} {
+		before := current
+		current.FontSize = size
+		request := UpdateRequest{Mutation: mutation("font-"+string(size), current.Version), Settings: current}
+		updated, err := f.Service.Update(ctx, owner(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		current, err = f.Service.Get(ctx, owner())
+		if err != nil || current.FontSize != size || current.Version != updated.Version {
+			t.Fatal(current, err)
+		}
+		if current.Theme != before.Theme || current.Palette != before.Palette || current.Language != before.Language {
+			t.Fatal("unrelated settings changed")
+		}
+		replay, err := f.Service.Update(ctx, owner(), request)
+		if err != nil || replay != updated {
+			t.Fatal("idempotent replay", replay, err)
+		}
+	}
+	for _, invalidSize := range []FontSize{"", "huge", "16px"} {
+		bad := current
+		bad.FontSize = invalidSize
+		_, err := f.Service.Update(ctx, owner(), UpdateRequest{Mutation: mutation("bad-font-"+string(invalidSize), current.Version), Settings: bad})
+		if err == nil {
+			t.Fatal("accepted invalid font size", invalidSize)
+		}
+	}
+	after, err := f.Service.Get(ctx, owner())
+	if err != nil || after != current {
+		t.Fatal("invalid request changed settings", err)
+	}
+	foreign, err := f.Service.Get(ctx, otherOwner())
+	if err != nil || foreign.FontSize != FontStandard {
+		t.Fatal("account leaked", foreign, err)
+	}
+}

@@ -99,7 +99,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/storage/sqlite` | `NewRestorer` | `TestTDDSQLiteCorruptBackupLeavesOriginalUntouched`, `TestTDDSQLiteRestoreRejectsSymlinkSnapshot` |
 | `internal/storage/sqlite` | `DB.Store`, `DB.InjectMigrationError` | `TestTDDSQLiteMigrationFailureDoesNotAdvanceVersion` |
 | `internal/storage/sqlite` | `DB.FailNextCommit` | `TestTDDSQLiteCallbackAndCommitErrorsRollBack` |
-| `internal/storage/sqlite` | `DB.Close`, `DB.Check`, `DB.Migrate`, `DB.Schema` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
+| `internal/storage/sqlite` | `DB.Close`, `DB.Check`, `DB.Migrate`, `DB.Schema` | `TestTDDSQLiteMigrateSchemaCheckAndClose`, `TestMigrateV3FontSizePreservesSettingsAndRollsBack` |
 | `internal/storage/sqlite` | `DB.Backup` | `TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication`, `TestTDDSQLiteCorruptBackupLeavesOriginalUntouched` |
 
 实际存储、系统边界及生产组合实现：

@@ -40,7 +40,7 @@ Attachment objects are written, committed, and deleted serially by file ID; diff
 
 During recovery, existing receipts are settled first, then local call occupations left by the previous process are terminated; unknown external results retain records and are not automatically retried. Database snapshots are not complete disaster recovery; files, workspaces, configurations, and master keys must be preserved separately. See [Backup, Recovery, and Upgrade](../../admin/deployment/maintenance.md#backup-recovery-and-upgrades) for operational steps.
 
-The database schema version is 2. Installation resources use their own namespace; startup rejects version 1 databases without online or offline conversion. Version checks are separate from crash recovery of the current format.
+Installation resources use their own namespace; startup rejects version 1 databases without online or offline conversion. Version checks are separate from crash recovery of the current format.
 
 ## Build and Verification
 
@@ -52,7 +52,7 @@ Real kernel isolation for Shell is verified separately by [Sandbox Tests](../sec
 
 ## Database versions and migrations
 
-`system/schema.Version` is the sole database-level persistence format version. Version 3 supports automatic upgrades from version 2. Checkpoint formats migrate with it; separate `CheckpointVersion` and `FormatVersion` fields are removed, while concurrency `Sequence` remains.
+`system/schema.Version` is the sole database-level persistence format version. Version 4 supports automatic upgrades from versions 2 and 3. Version 4 adds Standard font size to account settings and saved settings responses. Checkpoint formats migrate with it; separate `CheckpointVersion` and `FormatVersion` fields are removed, while concurrency `Sequence` remains.
 
 Startup acquires the instance lock, opens minimal record storage, and checks the version before migrating and installing indexes and derived query structures. Task recovery and services start afterward. Each migration step commits its data changes and version increment together. Failure rolls back the step and stops startup; retries execute only unfinished steps. New databases initialize directly at the current version. Unversioned nonempty databases, missing upgrade paths, and newer database versions are rejected.
 

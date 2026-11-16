@@ -64,7 +64,7 @@ try {
   await visible;
   await expect(page.locator('.desktop-app')).toHaveAttribute('data-app-platform', process.platform);
   await expect(page.locator('.desktop-identity > span')).toHaveCount(0);
-  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'system', palette: 'forest' });
+  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'system', palette: 'forest', fontSize: 'standard' });
   await expect(page.locator('.desktop-window-controls')).toHaveCount(process.platform === 'darwin' ? 0 : 1);
   if (process.platform === 'darwin') {
     for (const zoom of [0.8, 1.25, 1.5, 1]) {
@@ -137,8 +137,8 @@ try {
   assert.equal(await remote('window.molrApp.consumeInitialLogin()'), false, 'Remote links cannot opt into installation login');
   assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['consumeInitialLogin', 'disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'setAppearance', 'updates', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
-  await remote('window.molrApp.setAppearance({ theme: "dark", palette: "ocean" })');
-  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'dark', palette: 'ocean' });
+  await remote('window.molrApp.setAppearance({ theme: "dark", palette: "ocean", fontSize: "large" })');
+  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'dark', palette: 'ocean', fontSize: 'large' });
   assert.equal(await remote('window.molrApp.setAppearance({ theme: "dark", palette: "url(https://example.com)" }).then(() => false, () => true)'), true);
 
   if (process.platform === 'darwin') {
@@ -235,7 +235,7 @@ try {
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   checkpoint('connect isolated session');
   await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
-  await remote('window.molrApp.setAppearance({ theme: "light", palette: "rose" })');
+  await remote('window.molrApp.setAppearance({ theme: "light", palette: "rose", fontSize: "standard" })');
   checkpoint('second session cookie check');
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
   checkpoint('restore most recent connection');
@@ -304,7 +304,7 @@ try {
   checkpoint('theme screenshots');
   for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
     await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
-    await remote(`window.molrApp.setAppearance(${JSON.stringify({theme,palette})})`);
+    await remote(`window.molrApp.setAppearance(${JSON.stringify({theme,palette,fontSize:'standard'})})`);
     await page.evaluate(() => window.molrDesktop.manager());
     await page.reload(); await page.getByRole('heading', { name: '选择连接' }).waitFor();
     await expect(page.locator('html')).toHaveAttribute('data-palette',palette);
@@ -313,7 +313,7 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   }
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
-  await remote('window.molrApp.setAppearance({ theme: "system", palette: "forest" })');
+  await remote('window.molrApp.setAppearance({ theme: "system", palette: "forest", fontSize: "standard" })');
   await page.evaluate(() => window.molrDesktop.manager());
   await page.emulateMedia({colorScheme:'dark'});
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
