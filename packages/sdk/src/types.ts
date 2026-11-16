@@ -59,8 +59,8 @@ export type ToolCapability = { Source?: 'builtin' | 'plugin' | 'mcp'; Connection
 export type AssistantCapabilities = { AssistantID: ID; Tools: ToolCapability[]; Skills: { Supported: boolean; Items: Array<{ ID: string; Name: string; Description: string; Version: string; Enabled: boolean; RequiredTools: string[]; RequiredActions: string[] }> } };
 
 export type PlanRef = { Kind: 'todo' | 'schedule' | 'watch'; ID: string };
-export type PlanExecution = { ID: string; State: string; Title: string; Instructions: string; PlanVersion: number; OccurrenceAt: string | null; StartedAt: string; CompletedAt: string | null; Result: string; Task: Task | null };
-export type PlanExecutionSummary = Pick<PlanExecution, 'ID' | 'State' | 'OccurrenceAt' | 'StartedAt' | 'CompletedAt'>;
+export type PlanExecution = { RunStartedAt?: string; ID: string; State: string; TaskState: string; WaitingReason: string; Title: string; Instructions: string; PlanVersion: number; OccurrenceAt: string | null; StartedAt: string; CompletedAt: string | null; Result: string; Task: Task | null };
+export type PlanExecutionSummary = Pick<PlanExecution, 'ID' | 'State' | 'TaskState' | 'WaitingReason' | 'RunStartedAt' | 'OccurrenceAt' | 'StartedAt' | 'CompletedAt'>;
 export type PlanEventPage = { Items: { Key: string; At: string; PlanKey: string }[]; Plans: Record<string, Plan>; NextCursor: string };
 export type PlanEvent = { Key: string; At: string; Plan: Plan };
 export type PlanLinks = { Ref: PlanRef; Dependencies: PlanRef[] | null; Handoff: 'notify' | 'automatic'; Version: number; Dispatched: boolean; Runs: PlanExecution[] | null };

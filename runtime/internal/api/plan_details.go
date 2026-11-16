@@ -1,6 +1,7 @@
 package api
 
 import (
+	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/core"
 	"net/http"
 	"time"
@@ -67,6 +68,7 @@ func (s *HTTPServer) planDetailRoutes() {
 		p := principal(r)
 		var ref core.Object
 		var at *time.Time
+		boundOccurrence := false
 		if id := queryID(r, "task_id"); id != "" {
 			if err := id.Validate(); err != nil {
 				return nil, err
@@ -76,6 +78,7 @@ func (s *HTTPServer) planDetailRoutes() {
 				return nil, err
 			}
 			ref, at = task.Plan, task.OccurrenceAt
+			boundOccurrence = at != nil
 			if id := queryID(r, "plan_id"); id != "" && id != ref.ID {
 				return nil, core.Invalid("plan_id", "task belongs to another plan")
 			}
@@ -90,9 +93,53 @@ func (s *HTTPServer) planDetailRoutes() {
 				return nil, err
 			}
 		}
+		executionID := queryID(r, "execution_id")
+		if executionID != "" {
+			if taskID := queryID(r, "task_id"); taskID != "" && taskID != executionID {
+				return nil, core.Invalid("execution_id", "conflicting execution selection")
+			}
+			if err := executionID.Validate(); err != nil {
+				return nil, err
+			}
+			run, err := s.services.Plans.Execution(r.Context(), p, ref, executionID)
+			if err != nil {
+				return nil, err
+			}
+			at = run.OccurrenceAt
+			boundOccurrence = at != nil
+		}
+		if raw := r.URL.Query().Get("at"); raw != "" {
+			requested, err := time.Parse(time.RFC3339Nano, raw)
+			if err != nil {
+				return nil, core.Invalid("at", "invalid date")
+			}
+			if at != nil && !at.Equal(requested) {
+				return nil, core.Invalid("at", "execution belongs to another occurrence")
+			}
+			at = &requested
+		}
 		plan, err := s.services.Plans.Detail(r.Context(), p, ref, at)
 		if err != nil {
 			return nil, err
+		}
+		if at != nil && !boundOccurrence {
+			valid := false
+			if plan.Schedule != nil {
+				times, err := schedule.CalendarTimes(r.Context(), *plan.Schedule, *at, at.Add(time.Second))
+				if err != nil {
+					return nil, err
+				}
+				for _, value := range times {
+					valid = valid || value.Equal(*at)
+				}
+			} else if plan.Todo != nil {
+				for _, value := range []*time.Time{plan.Todo.StartAt, plan.Todo.DueAt} {
+					valid = valid || value != nil && value.Equal(*at)
+				}
+			}
+			if !valid {
+				return nil, core.Invalid("at", "not a planned occurrence")
+			}
 		}
 		return struct {
 			Plan any

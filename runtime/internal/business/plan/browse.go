@@ -20,11 +20,14 @@ import (
 // ExecutionSummary is enough to render state and navigate to an execution.
 // Instructions, results and task bodies are loaded only on expansion.
 type ExecutionSummary struct {
-	ID           core.ID
-	State        string
-	OccurrenceAt *time.Time
-	StartedAt    time.Time
-	CompletedAt  *time.Time
+	ID            core.ID
+	State         string
+	TaskState     string
+	WaitingReason string
+	OccurrenceAt  *time.Time
+	StartedAt     time.Time  // Record creation/trigger time.
+	RunStartedAt  *time.Time `json:",omitempty"` // Actual Runtime start, when recorded.
+	CompletedAt   *time.Time
 }
 type Summary struct {
 	State          planstate.State
@@ -45,7 +48,7 @@ type Summary struct {
 }
 
 func executionSummary(run Execution) ExecutionSummary {
-	return ExecutionSummary{run.ID, run.State, run.OccurrenceAt, run.StartedAt, run.CompletedAt}
+	return ExecutionSummary{ID: run.ID, State: run.State, TaskState: run.TaskState, WaitingReason: run.WaitingReason, OccurrenceAt: run.OccurrenceAt, StartedAt: run.StartedAt, RunStartedAt: run.RunStartedAt, CompletedAt: run.CompletedAt}
 }
 func summarize(p Plan, include func(Execution) bool) Summary {
 	links := p.Links
@@ -244,7 +247,11 @@ func (s *Coordinator) Execution(ctx context.Context, p core.Principal, ref core.
 		if t.OwnerID != p.OwnerID || t.Plan != ref {
 			return core.NewError(core.NotFound, "execution not found")
 		}
-		out = taskRun(t)
+		runs := []Execution{taskRun(t)}
+		if err := s.executionStatuses(ctx, p.OwnerID, runs); err != nil {
+			return err
+		}
+		out = runs[0]
 		return nil
 	})
 	return out, err

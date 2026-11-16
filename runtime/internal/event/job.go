@@ -2,7 +2,11 @@ package event
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/persistence"
 	"time"
 )
@@ -58,6 +62,16 @@ func SaveJob(ctx context.Context, tx persistence.Tx, job Job) error {
 	job.QueueKey = priority + job.NotBefore.UTC().Format("2006-01-02T15:04:05.000000000Z") + "/" + string(job.Event.ID) + "/" + string(job.Event.OwnerID)
 	if err := tx.Put(ctx, "agent.jobs", persistence.Key(job.Event.OwnerID, job.Event.ID), job); err != nil {
 		return err
+	}
+	if job.Event.TaskID != "" {
+		sum := sha256.Sum256([]byte(fmt.Sprintf("plan-execution/%s/%s/%d", job.Event.OwnerID, job.Event.ID, job.Version)))
+		at := job.Event.CreatedAt
+		if at.IsZero() {
+			at = time.Unix(0, 0).UTC()
+		}
+		if err := realtime.NewStore(tx.Store()).Append(ctx, realtime.Visible{ID: core.ID(hex.EncodeToString(sum[:])), OwnerID: job.Event.OwnerID, Topic: "plans.execution", Object: core.Object{Kind: "assistant", ID: job.Event.AssistantID}, CreatedAt: at}); err != nil {
+			return err
+		}
 	}
 	if err := tx.NotifyAfterCommit(ctx, DispatchSignal()); err != nil {
 		return err

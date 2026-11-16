@@ -23,6 +23,7 @@ var recordIndexes = []recordIndex{
 	{"records_query_all_ownerid_key", "", []string{"OwnerID", "key"}},
 	{"records_query_agent_events_ownerid_assistantid_key", "agent.events", []string{"OwnerID", "AssistantID", "key"}},
 	{"records_query_agent_events_ownerid_assistantid_kind_key", "agent.events", []string{"OwnerID", "AssistantID", "Kind", "key"}},
+	{"records_query_agent_handled_checkpoint_ownerid_lasteventid", "agent.handled", []string{"Checkpoint.OwnerID", "Checkpoint.LastEventID"}},
 	{"records_query_agent_jobs_event_kind_state_key", "agent.jobs", []string{"Event.Kind", "State", "key"}},
 	{"records_query_agent_jobs_event_ownerid_event_assistantid_executionid", "agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "ExecutionID"}},
 	{"records_query_agent_jobs_event_ownerid_event_assistantid_key", "agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "key"}},

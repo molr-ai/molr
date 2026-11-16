@@ -19,7 +19,11 @@ function readRoute(hash = location.hash) {
   const panel = raw === 'assistants' && ['info','permissions','channel','tasks'].includes(requestedPanel ?? '') ? requestedPanel as 'info'|'permissions'|'channel'|'tasks' : undefined;
   const requestedTask = new URLSearchParams(query).get('task') ?? '';
   const taskID = panel === 'tasks' && /^[A-Za-z0-9_-]{1,128}$/.test(requestedTask) ? requestedTask : '';
-  return { sandboxID, panel, taskID, page: raw === 'todos' || raw === 'schedules' ? 'plans' as const : pages.includes(raw as RoutePage) ? raw as RoutePage : 'assistants' as const, id: (raw === 'extensions' ? /^[a-z0-9.-]+\/(?:[a-z0-9_-]+|@settings|@admin)$/.test(id) : /^[A-Za-z0-9_-]{1,128}$/.test(id)) ? id : '', turnID, eventID, messageID };
+  const planID = raw === 'assistants' && panel === 'tasks' ? new URLSearchParams(query).get('plan') || '' : '';
+  const planAt = ['plans','todos','schedules'].includes(raw) || panel === 'tasks' ? new URLSearchParams(query).get('at') || '' : '';
+  const execution = new URLSearchParams(query).get('execution') || '';
+  const planExecutionID = ['plans','todos','schedules'].includes(raw) || panel === 'tasks' ? execution : '';
+  return { planID, planAt, planExecutionID, sandboxID, panel, taskID, page: raw === 'todos' || raw === 'schedules' ? 'plans' as const : pages.includes(raw as RoutePage) ? raw as RoutePage : 'assistants' as const, id: (raw === 'extensions' ? /^[a-z0-9.-]+\/(?:[a-z0-9_-]+|@settings|@admin)$/.test(id) : /^[A-Za-z0-9_-]{1,128}$/.test(id)) ? id : '', turnID, eventID, messageID };
 }
 export function guardedNavigation(action: () => void) {
   if (window.dispatchEvent(new CustomEvent('molr:before-navigation', { cancelable: true, detail: action }))) action();
@@ -49,7 +53,7 @@ export function useNavigation() {
     if (!readRoute().panel) return;
     const url = new URL(location.href), [path, search = ''] = url.hash.split('?');
     const query = new URLSearchParams(search);
-    query.delete('panel'); query.delete('task');
+    for (const key of ['panel','task','plan','at','execution']) query.delete(key);
     url.hash = path + (query.size ? `?${query}` : '');
     history.replaceState(history.state, '', url);
     window.dispatchEvent(new HashChangeEvent('hashchange'));

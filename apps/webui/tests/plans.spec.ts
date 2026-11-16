@@ -12,7 +12,7 @@ async function isolatedCalendarAccount(page: Page) {
  await post(page,'/api/admin/users',{Username:username,DisplayName:'Calendar review',Password:password,GroupID:group.ID});
  await post(page,'/api/auth/logout',{});
  await login(page,username,password);
- expect(await(await page.request.get('/api/plans')).json()).toEqual([]);
+ expect(await(await page.request.get('/api/plans')).json()).toEqual([]);return {username,password};
 }
 async function assistant(page:Page,name:string){const resource=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:modelOrigin,AllowedOrigins:[modelOrigin],Models:[{Name:name,ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]}});const models=await(await page.request.get('/api/models')).json();return post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});}
 async function closePlanDrawer(page: Page) { const drawer = page.locator('.plans-details-drawer'); if (await drawer.isVisible()) { await drawer.getByRole('button', { name: 'Close details', exact: true }).click(); await expect(drawer).toBeHidden(); } }
@@ -25,21 +25,21 @@ test('personal preparation hands off exactly once; plan and immutable execution 
  const prep=await post(page,'/api/todos',{Title:prepTitle});const analysis=await post(page,'/api/todos',{Title:analysisTitle,AssistantID:a.ID,Notes:'Analyze the prepared figures'});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await selectPlanRange(page, /No date/);await planAction(page,analysisTitle,'Handoff settings');
  const config=page.getByRole('dialog',{name:'Handoff settings',exact:true});await config.getByRole('combobox',{name:'Prerequisite plans',exact:true}).click();await page.getByRole('option',{name:prepTitle,exact:true}).click();await page.keyboard.press('Escape');await config.getByRole('combobox',{name:'Handoff settings',exact:true}).click();await page.getByRole('option',{name:'Start automatically',exact:true}).click();await config.getByRole('button',{name:'Save',exact:true}).click();await expect(config).not.toBeVisible();
- await expect(row(page,analysisTitle)).toContainText('Waiting for prerequisites');await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await expect(details(page,analysisTitle).getByRole('button',{name:'Start this execution'})).toBeDisabled();
+ await expect(row(page,analysisTitle)).toContainText('Enabled');await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await expect(details(page,analysisTitle).getByRole('button',{name:'Start this execution'})).toBeDisabled();
  await closePlanDrawer(page);await row(page,prepTitle).getByRole('button',{name:/Execution history/}).click();await details(page,prepTitle).getByRole('button',{name:'Complete this execution'}).click();const completion=page.getByRole('dialog',{name:'Complete this execution'});await completion.getByLabel('Result or handoff notes').fill('Sales 120; cost 80.');await completion.getByRole('button',{name:'Complete this execution',exact:true}).click();await expect(completion).not.toBeVisible();
  await expect.poll(async()=>{const plans=await(await page.request.get('/api/plans')).json();return plans.find((p:any)=>p.Ref.ID===analysis.ID).Executions.length;}).toBe(1);
- await page.reload();await selectPlanRange(page, /No date/);await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await details(page,analysisTitle).locator('summary').click();await expect(details(page,analysisTitle)).toContainText('Sales 120; cost 80.');await page.screenshot({path:info.outputPath('plans-detail.png')});
+ await page.reload();await expect(details(page,prepTitle)).toBeVisible();await closePlanDrawer(page);await selectPlanRange(page, /No date/);await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await details(page,analysisTitle).locator('.plans-history-entry').first().click();await expect(details(page,analysisTitle)).toContainText('Sales 120; cost 80.');await page.screenshot({path:info.outputPath('plans-detail.png')});
  await planAction(page,analysisTitle,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByLabel('What needs doing?').fill(`${analysisTitle} updated`);await edit.getByRole('button',{name:'Save',exact:true}).click();await expect(edit).not.toBeVisible();
- await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toBeVisible();await expect(panel).toContainText(`${analysisTitle} updated`);await expect(panel.getByRole('heading',{name:prepTitle,exact:true})).toHaveCount(0);
- const item=panel.locator('.plan-row').filter({hasText:`${analysisTitle} updated`});await item.getByRole('button',{name:/Execution history/}).click();const detail=panel.locator('.plans-panel-detail');await detail.locator('summary').click();await expect(detail).toContainText(`Plan: ${analysisTitle}`);await expect(detail).toContainText('Sales 120; cost 80.');
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toBeVisible();await selectPlanRange(panel,/No date/);await expect(panel).toContainText(`${analysisTitle} updated`);await expect(panel.getByRole('heading',{name:prepTitle,exact:true})).toHaveCount(0);
+ const item=panel.locator('.plan-row').filter({hasText:`${analysisTitle} updated`});await item.getByRole('button',{name:/Execution history/}).click();const detail=panel.locator('.plans-panel-detail');await detail.locator('.plans-history-entry').first().click();await detail.locator('.plans-run-disclosure > summary').filter({hasText:'Instructions at execution'}).click();await expect(detail.locator('.plans-snapshot-source')).toContainText(analysisTitle);const query=new URLSearchParams(new URL(page.url()).hash.split('?')[1]);expect(query.get('plan')).toBe(analysis.ID);expect(query.get('execution')).toBeTruthy();expect(query.get('at')).toBeNull();expect(query.get('task')).toBeNull();await expect(detail).toContainText('Sales 120; cost 80.');await expect(detail.locator('.plans-history')).toHaveCount(0);await detail.getByRole('button',{name:'View execution history',exact:true}).click();const historyQuery=new URLSearchParams(new URL(page.url()).hash.split('?')[1]);expect(historyQuery.get('plan')).toBe(analysis.ID);expect(historyQuery.get('execution')).toBeNull();expect(historyQuery.get('at')).toBeNull();await expect(detail.locator('.plans-history')).toBeVisible();
  const plans=await(await page.request.get('/api/plans')).json();expect(plans.find((p:any)=>p.Ref.ID===analysis.ID).Executions).toHaveLength(1);expect(plans.find((p:any)=>p.Ref.ID===prep.ID).Executions[0].State).toBe('completed');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
 test('ordinary tasks receive a one-time plan without changing normal chat behavior',async({page},info)=>{
  await login(page);const a=await assistant(page,`One time ${info.project.name}-${Date.now()}`),goal=`One-time report ${Date.now()}`;const task=await post(page,'/api/tasks',{AssistantID:a.ID,Goal:goal});expect(task.Plan.Kind).toBe('todo');
- await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toContainText(goal);await panel.getByRole('button',{name:/Execution history/}).click();await expect(panel.locator('.plan-execution')).toHaveCount(1);await page.screenshot({path:info.outputPath('assistant-plans.png')});
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await selectPlanRange(panel,/No date/);await expect(panel).toContainText(goal);await panel.getByRole('button',{name:/Execution history/}).click();await expect(panel.locator('.plans-history-entry')).toHaveCount(1);await page.screenshot({path:info.outputPath('assistant-plans.png')});
  await page.goto(`/#/assistants/${a.ID}?panel=tasks&task=${task.ID}`);
- await expect(page.locator('.assistant-plans .plan-execution[open]')).toHaveCount(1);
+ await expect(page.locator('.assistant-plans .plans-execution-panel[data-execution-id]')).toHaveCount(1);
  await expect(page.locator('.assistant-plans .plans-snapshot-source')).toContainText(goal);
 });
 
@@ -113,7 +113,7 @@ test('upcoming list paginates occurrences in time order and calendar preserves r
 test('completing a recurring event targets the selected occurrence only',async({page},info)=>{
  await login(page);const at=new Date();at.setDate(at.getDate()+1);at.setHours(10,0,0,0);const title=`Personal series ${info.project.name}-${Date.now()}`;
  const plan=await post(page,'/api/schedules',{Title:title,Kind:'personal_schedule',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=3',MissedPolicy:'coalesce'}});
- await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await expect(row(page,title)).toHaveCount(3);const second=row(page,title).nth(1),selected=await second.getAttribute('data-occurrence');await second.getByRole('button',{name:/Execution history/}).click();await details(page,title).getByRole('button',{name:'Complete this execution',exact:true}).click();
+ await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await expect(row(page,title)).toHaveCount(3);const second=row(page,title).nth(1),selected=await second.getAttribute('data-occurrence');await second.getByRole('button',{name:title,exact:true}).click();await details(page,title).getByRole('button',{name:'Complete this execution',exact:true}).click();
  const response=page.waitForResponse(r=>r.url().endsWith('/api/plans/execute')&&r.request().method()==='POST');await page.getByRole('dialog',{name:'Complete this execution',exact:true}).getByRole('button',{name:'Complete this execution',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);expect(result.request().postDataJSON().OccurrenceAt).toBe(selected);
  const plans=await(await page.request.get('/api/plans')).json(),saved=plans.find((p:any)=>p.Ref.ID===plan.ID);expect(saved.Executions).toHaveLength(1);expect(Date.parse(saved.Executions[0].OccurrenceAt)).toBe(Date.parse(selected!));
  await closePlanDrawer(page);await expect(row(page,title).nth(1)).toHaveAttribute('data-completed','true');await expect(row(page,title).nth(0)).toHaveAttribute('data-completed','false');
@@ -187,24 +187,26 @@ test('plan lists omit execution bodies and load history pages and snapshots only
  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
  await expect(row(page,title)).toHaveCount(30);expect(catalog).toHaveLength(catalogCount);
  await row(page,title).first().getByRole('button',{name:/Execution history/}).click();
- const detail=details(page,title);await expect(detail.locator('.plan-execution')).toHaveCount(20);expect(bodies).toHaveLength(0);
- await detail.getByRole('button',{name:'Load more history'}).click();await expect(detail.locator('.plan-execution')).toHaveCount(25);
- await detail.locator('.plan-execution summary').first().click();await expect(detail.locator('.plans-result')).toContainText(result.trim());expect(bodies).toHaveLength(1);
+ const detail=details(page,title);await expect(detail.locator('.plans-history-entry')).toHaveCount(20);expect(bodies).toHaveLength(0);await expect(detail.locator('.plans-execution-panel')).toHaveCount(0);
+ await detail.getByRole('button',{name:'Load more history'}).click();await expect(detail.locator('.plans-history-entry')).toHaveCount(25);
+ await detail.locator('.plans-history-entry').first().click();await expect(detail.locator('.plans-result')).toContainText(result.trim());await expect.poll(()=>bodies.length).toBe(1);await expect(detail.locator('.plans-history')).toHaveCount(0);
  await planAction(page,title,'Edit');await expect(page.getByRole('dialog',{name:'Edit',exact:true}).getByLabel('Notes',{exact:true})).toHaveValue(notes);
 });
 
-test('continuous watches share global and assistant lists without calendar occurrences',async({page},info)=>{
+test('continuous watches have separate global and assistant lists without calendar occurrences',async({page},info)=>{
  await login(page);const suffix=`${info.project.name}-${Date.now()}`,a=await assistant(page,`Watch owner ${suffix}`),title=`Watch ${suffix}`;
  const compute=await post(page,'/api/resources',{Name:`Watch compute ${suffix}`,Kind:'compute',Provider:'local-sandbox'});
  const w=await post(page,'/api/watches',{Title:title,AssistantID:a.ID,Instructions:'Report relevant changes',State:'paused',Watcher:{compute_id:compute.ID,script:'read start; printf \'%s\\n\' \'{"type":"ready","version":1}\'; read ack; sleep 600'}});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();
+ await expect(page.locator('.plans-master')).not.toContainText(title);await selectPlanRange(page,'Continuous watches');
  const group=page.getByRole('region',{name:'Continuous watches',exact:true});await expect(group).toContainText(title);await expect(group.locator(`[data-plan-id="${w.ID}"]`)).toHaveCount(1);
  await group.getByRole('button',{name:title,exact:true}).click();await expect(details(page,title)).toContainText('Report relevant changes');
+ await page.reload();await expect(details(page,title)).toContainText('Report relevant changes');await closePlanDrawer(page);await expect(page.getByRole('button',{name:'List',exact:true})).toContainText('Continuous watches');await expect(page.getByRole('combobox',{name:'Plan type',exact:true})).toHaveCount(0);
  await closePlanDrawer(page);await planAction(page,title,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByRole('textbox',{name:'Instructions for changes'}).fill('Only report meaningful changes');await edit.getByRole('button',{name:'Save',exact:true}).click();await expect(edit).toBeHidden();
  await page.getByRole('button',{name:'Calendar',exact:true}).click();await expect(page.locator('.plans-calendar-section')).not.toContainText(title);
  const events=await (await page.request.get(`/api/plans/events?from=${encodeURIComponent(new Date().toISOString())}`)).json();expect(Object.values(events.Plans).some((v:any)=>v.Ref.ID===w.ID)).toBe(false);
- await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toContainText(title);await expect(panel.getByRole('heading',{name:'Continuous watches',exact:true})).toBeVisible();
- await panel.getByRole('button',{name:title,exact:true}).click();await expect(panel).toContainText('Only report meaningful changes');await page.screenshot({path:info.outputPath('continuous-watch.png')});
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).not.toContainText(title);await selectPlanRange(panel,'Continuous watches');await expect(panel).toContainText(title);await expect(panel.getByRole('button',{name:'List',exact:true})).toContainText('Continuous watches');
+ await expect(panel.locator('.plan-row')).toHaveCount(1);await panel.getByRole('button',{name:title,exact:true}).click();await expect(panel).toContainText('Only report meaningful changes');await page.screenshot({path:info.outputPath('continuous-watch.png')});await panel.getByRole('button',{name:'Back to plan list',exact:true}).click();await expect(panel.getByRole('button',{name:'List',exact:true})).toContainText('Continuous watches');await expect(panel.getByRole('combobox',{name:'Plan type',exact:true})).toHaveCount(0);
 });
 
 test('deletion allows history, blocks dependents, and leaves no readable plan',async({page},info)=>{
@@ -223,7 +225,7 @@ test('deletion allows history, blocks dependents, and leaves no readable plan',a
  const source=await(await page.request.get(`/api/plans/todo/${dependent.ID}`)).json();
  await post(page,'/api/todos/delete',{ID:dependent.ID,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:source.Todo.Version}});
  await page.reload();await selectPlanRange(page,/No date/);
- await row(page,title).getByRole('button',{name:/Execution history/}).click();await expect(details(page,title).locator('.plan-execution')).toHaveCount(1);
+ await row(page,title).getByRole('button',{name:/Execution history/}).click();await expect(details(page,title).locator('.plans-history-entry')).toHaveCount(1);
  await planAction(page,title,'Delete');const confirm=page.getByRole('dialog',{name:'Delete',exact:true});await expect(confirm).toContainText('cancel its unfinished executions');await confirm.getByRole('button',{name:'Confirm',exact:true}).click();await expect(confirm).toBeHidden();
  await expect(row(page,title)).toHaveCount(0);
  expect((await page.request.get(`/api/plans/todo/${original.ID}`)).status()).toBe(404);
@@ -232,4 +234,124 @@ test('deletion allows history, blocks dependents, and leaves no readable plan',a
  await page.getByRole('button',{name:'List',exact:true}).click();await selectPlanRange(page,/No date/);
  await row(page,`Still available ${title}`).getByRole('button',{name:`Still available ${title}`,exact:true}).click();
  await expect(details(page,`Still available ${title}`)).toBeVisible();
+});
+
+test('ordinary plan shows Runtime progress and completed turns without claiming verified delivery', async ({page}, info) => {
+ await login(page);
+ const title=`Plan progress ${info.project.name}-${Date.now()}`,a=await assistant(page,title);
+ const todo=await post(page,'/api/todos',{Title:title,AssistantID:a.ID,Notes:'Read the current conversation and publish a short acknowledgement.'});
+ await page.goto(`/#/plans/${todo.ID}`);
+ const detail=details(page,title);
+ await expect(detail).toBeVisible();
+ await detail.getByRole('button',{name:'Start this execution',exact:true}).click();
+ await expect(detail.locator('.plans-execution-properties')).toContainText('Running');
+ await expect(detail.locator('.plans-history')).toHaveCount(0);
+ await expect(detail.locator('.plans-execution-properties')).toContainText('Ended',{timeout:20_000});
+ await detail.getByRole('button',{name:'View execution history',exact:true}).click();
+ await expect(detail.locator('.plans-execution-panel')).toHaveCount(0);await expect(page).toHaveURL(`${base}/#/plans/${todo.ID}`);
+ await expect(detail.locator('.plans-history-entry')).toContainText('Ended');
+ await detail.locator('.plans-history-entry').click();
+ await expect(detail.locator('.plans-plan-information')).toContainText('Enabled');
+ await expect(detail.locator('.plans-plan-information')).toContainText('No date set');
+ await expect(detail.locator('.plans-plan-information')).not.toContainText('Unscheduled');
+ await expect(detail.locator('.plans-execution-properties time')).toHaveCount(2);
+ await expect(detail.locator('.plans-execution-properties')).toContainText('Elapsed');
+ await expect(detail).not.toContainText('verified as complete');
+ await expect(detail.getByRole('button',{name:'Start this execution',exact:true})).toHaveCount(0);
+ await expect(detail.locator('.plans-execution-properties')).toContainText('Spent');
+ const snapshot=detail.locator('.plans-run-disclosure').filter({has:page.locator('summary',{hasText:'Instructions at execution'})});
+ await expect(snapshot).not.toHaveAttribute('open');
+ await expect(detail.locator('.plan-execution-details')).not.toContainText('Revision history');
+ await snapshot.locator('summary').click();
+ await expect(snapshot.locator('.plans-description-text')).toContainText('Read the current conversation');
+ // A full reload must reconstruct the same status from historical Runtime records.
+ await page.reload();
+ await expect(details(page,title).locator('.plans-execution-properties')).toContainText('Ended');
+ await expect(details(page,title).locator('.plans-history')).toHaveCount(0);
+});
+
+test('calendar occurrence and history selection survive navigation, reload and login',async({page,browser},info)=>{
+ test.setTimeout(90_000);
+ await login(page);const account=await isolatedCalendarAccount(page);
+ const at=new Date();at.setDate(at.getDate()+1);at.setHours(10,0,0,0);
+ const second=new Date(at);second.setDate(second.getDate()+1);
+ const third=new Date(at);third.setDate(third.getDate()+2);
+ const title=`Occurrence context ${info.project.name}-${Date.now()}`;
+ const plan=await post(page,'/api/schedules',{Title:title,Kind:'personal_schedule',Instructions:'Series instructions',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=3',MissedPolicy:'skip'}});
+ const finish=(date:Date,version:number,result:string)=>post(page,'/api/plans/execute',{Ref:{Kind:'schedule',ID:plan.ID},Action:'complete',OccurrenceAt:date.toISOString(),Result:result,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:version}});
+ const firstRun=await finish(at,0,'First occurrence result'),secondRun=await finish(second,1,'Second occurrence result');
+ await page.goto(`/#/plans/${plan.ID}`);
+ await expect(details(page,title).locator('.plans-history-entry')).toHaveCount(2);
+ await expect(details(page,title).locator('.plans-history-entry').first()).toHaveAttribute('data-execution-id',secondRun.ID);
+ await expect(details(page,title).locator('.plans-execution-panel')).toHaveCount(0);
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}`);
+ await closePlanDrawer(page);await calendar(page).click();await page.getByRole('button',{name:'Month',exact:true}).click();await pickMonth(page,dateKey(at).slice(0,7));
+ await page.locator(`.plans-month-day[data-day="${dateKey(at)}"] .plans-month-event`).filter({hasText:title}).click();
+ const selected=page.getByRole('region',{name:'Selected execution',exact:true});
+ await expect(selected).toHaveAttribute('data-execution-id',firstRun.ID);await expect(selected).toContainText('First occurrence result');await expect(selected).not.toContainText('Second occurrence result');
+ await expect(details(page,title).locator('.plans-history')).toHaveCount(0);
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}?execution=${firstRun.ID}`);
+ await page.reload();await expect(selected).toContainText('First occurrence result');
+ await selected.getByRole('button',{name:'View execution history',exact:true}).click();
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}`);await expect(details(page,title).locator('.plans-execution-panel')).toHaveCount(0);
+ await expect(details(page,title).locator('.plans-history > h3')).toBeFocused();
+ await expect(details(page,title).locator(`.plans-history-entry[data-execution-id="${firstRun.ID}"]`)).toContainText('Scheduled');
+ await details(page,title).locator(`.plans-history-entry[data-execution-id="${secondRun.ID}"]`).click();
+ await expect(selected).toHaveAttribute('data-execution-id',secondRun.ID);await expect(selected).toContainText('Second occurrence result');
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}?execution=${secondRun.ID}`);
+ await page.goBack();await expect(details(page,title).locator('.plans-history')).toBeVisible();await expect(selected).toHaveCount(0);
+ await page.goBack();await expect(selected).toHaveAttribute('data-execution-id',firstRun.ID);await expect(selected).toContainText('First occurrence result');
+ await closePlanDrawer(page);await page.getByRole('button',{name:'Month',exact:true}).click();await pickMonth(page,dateKey(third).slice(0,7));
+ await page.locator(`.plans-month-day[data-day="${dateKey(third)}"] .plans-month-event`).filter({hasText:title}).click();
+ await expect(selected).toContainText('Not started');await expect(selected.locator('.plans-result')).toHaveCount(0);
+ expect(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('execution')).toBeNull();
+ expect(Date.parse(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('at')!)).toBe(third.getTime());
+ await expect(details(page,title).locator('.plans-history')).toHaveCount(0);await selected.getByRole('button',{name:'View execution history',exact:true}).click();await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}`);await expect(details(page,title).locator('.plans-history-entry')).toHaveCount(2);await page.goBack();await expect(selected).toContainText('Not started');
+ await page.reload();await expect(selected).toContainText('Not started');
+ await selected.getByRole('button',{name:'Complete this execution',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Complete this execution',exact:true});await dialog.getByLabel('Result or handoff notes').fill('Third occurrence result');
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/plans/execute')&&r.request().method()==='POST');
+ await dialog.getByRole('button',{name:'Complete this execution',exact:true}).click();
+ const completedResponse=await response,thirdRun=await completedResponse.json();
+ expect(Date.parse(completedResponse.request().postDataJSON().OccurrenceAt)).toBe(third.getTime());await expect(selected).toContainText('Third occurrence result');
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}?execution=${thirdRun.ID}`);
+ // Sign-in must keep the exact occurrence, including its query string.
+ const token=(await page.context().cookies()).find(c=>c.name===`molr_dev_csrf_p${new URL(base).port}`)!.value;
+ const target=new URL(page.url()).hash.slice(1);
+ const proofResponse=await page.request.post('/api/auth/reauthenticate',{headers:{Origin:base,'X-CSRF-Token':token},data:{password:account.password,purpose:'login_link.create'}});expect(proofResponse.status()).toBe(200);const proof=await proofResponse.json();
+ const issuedResponse=await page.request.post('/api/auth/login-links',{headers:{Origin:base,'X-CSRF-Token':token},data:{name:'Selected occurrence',target_path:target,expires_in:10800,verification:proof.verification}});
+ expect(issuedResponse.status(),await issuedResponse.text()).toBe(200);
+ const issued=await issuedResponse.json(),fresh=await browser.newContext({locale:'en-US',viewport:page.viewportSize()!});
+ try{const next=await fresh.newPage();await next.goto(`${base}/#/login?token=${issued.value}`);await next.getByRole('button',{name:'Confirm sign-in',exact:true}).click();await expect(next).toHaveURL(`${base}/#${target}`);await expect(next.getByRole('region',{name:'Selected execution',exact:true})).toContainText('Third occurrence result');}finally{await fresh.close();}
+ // A supplied date is redundant once an execution is selected.
+ await page.goto(`${base}/#/plans/${plan.ID}?at=${encodeURIComponent(at.toISOString())}&execution=${secondRun.ID}`);
+ await expect(page).toHaveURL(`${base}/#/plans/${plan.ID}?execution=${secondRun.ID}`);
+ await expect(selected).toContainText('Second occurrence result');
+});
+
+
+test('execution history distinguishes loading, failure and empty records without duplicate actions',async({page},info)=>{
+ await login(page);
+ const title=`Empty history ${info.project.name}-${Date.now()}`,plan=await post(page,'/api/todos',{Title:title});
+ let release=()=>{},requested=()=>{},fail=true;
+ const gate=new Promise<void>(resolve=>{release=resolve;}),pending=new Promise<void>(resolve=>{requested=resolve;});
+ const path=`**/api/plans/todo/${plan.ID}/history?*`;
+ await page.route(path,async route=>{requested();await gate;await route.fulfill(fail?{status:400,json:{code:'invalid_argument'}}:{json:{Items:[],NextCursor:''}});});
+ try{
+  await page.goto(`/#/plans/${plan.ID}`);await pending;
+  const detail=details(page,title),history=detail.locator('.plans-history');
+  await expect(history.locator('.loading')).toBeVisible();await expect(history.locator('.plans-history-empty')).toHaveCount(0);
+  release();await expect(history.getByRole('heading',{name:'Unable to load execution history',exact:true})).toBeVisible();
+  await expect(history.getByRole('heading',{name:'No execution records',exact:true})).toHaveCount(0);
+  await page.getByRole('list',{name:'Notifications',exact:true}).getByRole('button',{name:'Close',exact:true}).first().click();
+  fail=false;await history.getByRole('button',{name:'Retry',exact:true}).click();
+  await expect(history.getByRole('heading',{name:'No execution records',exact:true})).toBeVisible();
+  await expect(history.locator('h3 > span')).toHaveCount(0);await expect(history.locator('.plans-history-empty button')).toHaveCount(0);
+  await expect(detail.locator('.plans-plan-information').getByRole('button',{name:'Start this execution',exact:true})).toBeVisible();
+  await page.unroute(path);
+  await detail.getByRole('button',{name:'Complete this execution',exact:true}).click();
+  await page.getByRole('dialog',{name:'Complete this execution',exact:true}).getByRole('button',{name:'Complete this execution',exact:true}).click();
+  await detail.getByRole('button',{name:'View execution history',exact:true}).click();
+  await expect(history.locator('.plans-history-entry')).toHaveCount(1);await expect(history.locator('.plans-history-empty')).toHaveCount(0);await expect(history.locator('h3 > span')).toHaveText('1');
+ }finally{release();if(!page.isClosed())await page.unrouteAll({behavior:'wait'});}
 });

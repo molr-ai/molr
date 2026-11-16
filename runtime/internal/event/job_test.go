@@ -85,3 +85,46 @@ func TestJobCommitSignalAndStoppedOutboxFence(t *testing.T) {
 		t.Fatal("outbox resurrected fenced job", job, err)
 	}
 }
+
+func TestPlanExecutionNotificationCommitsWithJob(t *testing.T) {
+	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "plans.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	job := Job{Event: AssistantEvent{ID: "job", OwnerID: "owner", AssistantID: "assistant", TaskID: "task", CreatedAt: time.Now().UTC()}, State: Running, Version: 1}
+	rollback := errors.New("rollback")
+	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		if err := SaveJob(ctx, tx, job); err != nil {
+			return err
+		}
+		return rollback
+	})
+	if !errors.Is(err, rollback) {
+		t.Fatal(err)
+	}
+	rows, err := persistence.Scan[struct{ Topic string }](t.Context(), db, "im.visible")
+	if err != nil || len(rows) != 0 {
+		t.Fatal("rolled-back notification", rows, err)
+	}
+	save := func() {
+		t.Helper()
+		if err := db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return SaveJob(ctx, tx, job) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save()
+	save() // Saving the same version must not duplicate notifications.
+	job.State = Done
+	job.Version++
+	save()
+	rows, err = persistence.Scan[struct{ Topic string }](t.Context(), db, "im.visible")
+	if err != nil || len(rows) != 2 {
+		t.Fatal(rows, err)
+	}
+	for _, row := range rows {
+		if row.Topic != "plans.execution" {
+			t.Fatal(row)
+		}
+	}
+}

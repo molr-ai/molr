@@ -295,7 +295,7 @@
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
 | `internal/event` | `DispatchSignal`, `AssistantInputSignal` | `TestJobCommitSignalAndStoppedOutboxFence` |
-| `internal/event` | `SaveJob` | `TestJobCommitSignalAndStoppedOutboxFence` |
+| `internal/event` | `SaveJob` | `TestJobCommitSignalAndStoppedOutboxFence`, `TestPlanExecutionNotificationCommitsWithJob` |
 | `internal/im/conversation` | `OutboxSignal` | `TestOutboxSignalsOnlyCommittedNewMessages` |
 
 | `internal/notification` | `Unresolved` | `internal/business/plan.TestFilteredHandoffsStillResolveNotices` |

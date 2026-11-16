@@ -163,15 +163,22 @@ func (s *Coordinator) loadListDetails(ctx context.Context, owner core.ID, plans 
 			}
 		}
 		if light {
-			query.Fields = []string{"ID", "OwnerID", "Plan", "State", "OccurrenceAt", "CreatedAt", "UpdatedAt"}
+			query.Fields = []string{"ID", "OwnerID", "AssistantID", "Plan", "State", "OccurrenceAt", "CreatedAt", "UpdatedAt"}
 		}
 		tasks, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", query)
 		if err != nil {
 			return err
 		}
+		projected := make([]Execution, 0, len(tasks))
 		for _, run := range tasks {
-			if row := byRef[run.Plan]; row != nil && run.OwnerID == owner {
-				row.Executions = append(row.Executions, taskRun(run))
+			projected = append(projected, taskRun(run))
+		}
+		if err := s.executionStatuses(ctx, owner, projected); err != nil {
+			return err
+		}
+		for _, run := range projected {
+			if row := byRef[run.Task.Plan]; row != nil && run.Task.OwnerID == owner {
+				row.Executions = append(row.Executions, run)
 			}
 		}
 		for _, row := range batch {

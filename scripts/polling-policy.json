@@ -284,6 +284,15 @@
       ]
     },
     {
+      "file": "apps/webui/src/interfaces/official/features/PlanExecutionPanel.tsx",
+      "reason": "An unstarted selected schedule occurrence changes its display state at its known scheduled time.",
+      "budget": "At most one local deadline timer for the selected schedule occurrence; zero HTTP or storage reads. Cap delays at the platform timeout limit. Cancel while hidden, on execution creation, context change and unmount; recheck on visibility. No timers for to-dos, watches, whole plans or existing executions.",
+      "tests": ["apps/webui/tests/plan-occurrence-time.spec.ts"],
+      "sites": [
+        {"scope": "syncOccurrenceTime", "api": "setTimeout", "delay": "Math.min(deadline - current, 2147483647)", "loops": 0}
+      ]
+    },
+    {
       "file": "apps/webui/src/interfaces/official/features/PlanWeekCalendar.tsx",
       "reason": "Visible duration labels and calendar time indicators advance with wall-clock time.",
       "budget": "Local calculations only (1s/30s/250ms respectively); release on unmount; no periodic API reads.",
@@ -477,7 +486,7 @@
       "file": "apps/webui/src/query-store.ts",
       "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
       "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
-      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts", "apps/webui/tests/plans-list-loading.spec.ts"],
       "sites": [
         {"scope": "<module>", "api": "query.default", "delay": "0", "loops": 0},
         {"scope": "subscribe", "api": "query.reschedule", "delay": "this.interval(entry)", "loops": 0},

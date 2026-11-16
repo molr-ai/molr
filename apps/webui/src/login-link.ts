@@ -45,10 +45,11 @@ export function useLoginLink() {
   return useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => current, () => null);
 }
 export function finishLoginLink(target = '/assistants') {
-  // The canonical target comes from Runtime, never from the link's query string.
-  if (['/settings/theme', '/settings/memory', '/settings/security'].includes(target)) target = target.replace('/settings/', '/account/');
-  const allowed = ['/account/usage', '/settings/usage', '/account', '/account/theme', '/account/memory', '/account/security', '/assistants', '/plans', '/resources', '/settings', '/settings/theme', '/extensions', '/settings/memory', '/settings/security', '/workbench'];
-  history.replaceState(history.state, '', `${location.pathname}${location.search}#${allowed.includes(target) ? target : '/assistants'}`);
+  // Runtime validates the stored destination. Assigning only the fragment keeps
+  // navigation inside this app without another page/parameter allowlist.
+  const url = new URL(location.href);
+  url.hash = target;
+  history.replaceState(history.state, '', url);
   void current?.close();
   current = null;
   listeners.forEach(listener => listener());

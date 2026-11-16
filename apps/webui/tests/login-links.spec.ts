@@ -294,3 +294,43 @@ test('login links still require MFA and finish at the saved destination', async 
     await post('/api/auth/mfa/disable', { verification: proof.verification });
   }
 });
+
+test('login links preserve internal detail paths and query parameters across pages', async ({ page, browser }) => {
+ test.setTimeout(90_000);
+ await login(page);
+ async function post(path:string,data:object){
+  const csrf=(await page.context().cookies()).find(c=>c.name===`molr_dev_csrf_p${new URL(base).port}`)!.value;
+  const response=await page.request.post(path,{headers:{Origin:base,'X-CSRF-Token':csrf},data});
+  expect(response.status(),await response.text()).toBe(200);return response.json();
+ }
+ const mutation=()=>({IdempotencyKey:crypto.randomUUID(),ExpectedVersion:0});
+ const title=`Bound plan ${Date.now()}`;
+ const plan=await post('/api/todos',{Title:title,Mutation:mutation()});
+ const modelOrigin=`http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT??18882}`;
+ const resource=await post('/api/resources',{Name:'Login route fixture',Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:modelOrigin,AllowedOrigins:[modelOrigin],Models:[{Name:'login-route-fixture',ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]},Mutation:mutation()});
+ const models=await(await page.request.get('/api/models')).json();
+ const assistant=await post('/api/assistants',{Name:`Bound assistant ${Date.now()}`,ModelID:models.find((m:{ResourceID:string})=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'},Mutation:mutation()});
+ const sandboxes=await(await page.request.get('/api/sandboxes')).json();
+ for (const [target,destination] of [
+  [`/plans/${plan.ID}`,'plans'],
+  [`/assistants/${assistant.ID}?panel=info`,'assistants'],
+  [`/resources?sandbox=${sandboxes[0].ID}`,'resources'],
+  [`/workbench/${assistant.ID}?event=missing-event`,'workbench'],
+  ['/account/general','account'],
+  ['/account/memory?scope=global&assistant_id=&path=%2Fglobal%2Fnotes%20one.md','account'],
+ ]) {
+  const proof=await post('/api/auth/reauthenticate',{password:'webui-e2e-password-2026!',purpose:'login_link.create'});
+  const issued=await post('/api/auth/login-links',{name:'Page destination',target_path:target,expires_in:10800,verification:proof.verification});
+  const fresh=await browser.newContext({locale:'en-US',viewport:page.viewportSize()!});
+  try {
+   const next=await fresh.newPage();await next.goto(`${base}/#/login?token=${issued.value}`);
+   await next.getByRole('button',{name:'Confirm sign-in',exact:true}).click();
+   await expect(next).toHaveURL(`${base}/#${target}`);
+   await expect(next.locator(`main[data-page="${destination}"]`)).toBeVisible();
+   if(destination==='plans')await expect(next.getByRole('region',{name:`${title} · Plan details`,exact:true})).toBeVisible();
+   await next.reload();
+   await expect(next).toHaveURL(`${base}/#${target}`);
+   await expect(next.locator(`main[data-page="${destination}"]`)).toBeVisible();
+  } finally {await fresh.close();}
+ }
+});

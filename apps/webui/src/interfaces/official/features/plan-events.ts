@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Plan, PlanEvent, PlanEventPage, PlanExecutionSummary } from '@molr/sdk';
+import type { Plan, PlanEvent, PlanExecutionSummary } from '@molr/sdk';
 import { poll } from '../../../polling';
 import { api } from '@molr/sdk';
 import { useTopicVersion } from '../../../state';
@@ -12,8 +12,11 @@ export function eventEnd(plan: Plan, at: string) {
 }
 export function eventDone(plan: Plan, at?: string) {
  if(plan.Watch)return plan.Watch.RunState==='completed';
-  const run = plan.Schedule?.Trigger.Recurrence ? plan.Executions.find(run => !!run.OccurrenceAt && !!at && Date.parse(run.OccurrenceAt) === Date.parse(at)) : plan.Executions[0];
+  const run = occurrenceExecution(plan, at);
   return run ? run.State === 'completed' : !!plan.Todo?.Completed;
+}
+export function occurrenceExecution(plan: Plan, at?: string) {
+  return plan.Schedule?.Trigger.Recurrence ? plan.Executions.find(run => !!run.OccurrenceAt && !!at && Date.parse(run.OccurrenceAt) === Date.parse(at)) : plan.Executions[0];
 }
 export function calendarEvents(plans: Plan[]): PlanEvent[] {
   return plans.flatMap(plan => {
@@ -29,11 +32,7 @@ export function eventsOnDay(events: PlanEvent[], day: string) {
 
 // Reload all displayed pages on a plan change so removed/revised occurrences
 // cannot survive in an appended page. Every cursor is scoped by the Runtime.
-const eventPage = (page: PlanEventPage) => ({Items: page.Items.map(item => ({Key:item.Key, At:item.At, Plan:page.Plans[item.PlanKey]})), NextCursor:page.NextCursor});
-const watchPage=(page:{Items:Plan[];NextCursor:string})=>page;
-export function useWatchPlans(path:string|null){return usePlanPages(path,watchPage);}
 const historyPage = (page: {Items:PlanExecutionSummary[];NextCursor:string}) => page;
-export function usePlanEvents(path: string | null) { return usePlanPages(path,eventPage); }
 export function usePlanHistory(path: string | null) { return usePlanPages(path,historyPage); }
 function usePlanPages<T, P>(path: string | null, decode: (page:P)=>{Items:T[];NextCursor:string}) {
   const revision = useTopicVersion('plans');

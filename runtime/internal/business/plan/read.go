@@ -26,7 +26,10 @@ func (s *Coordinator) Read(ctx context.Context, p core.Principal, ref core.Objec
 		}
 		out.BlockedBy, err = s.ready(ctx, p.OwnerID, out)
 		out.Ready = len(out.BlockedBy) == 0 && out.State == planstate.Active
-		return err
+		if err != nil {
+			return err
+		}
+		return s.executionStatuses(ctx, p.OwnerID, out.Executions)
 	})
 	return out, err
 }

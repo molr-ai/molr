@@ -43,7 +43,7 @@ export function OfficialPage() {
   return <>
     <Suspense fallback={<Loading />}>
       {page === 'assistants' ? <AssistantsPage assistants={assistants} settings={settings.data} workbenchVisible={workbenchVisible} memory={assistantMemory.current} onSearch={() => setSearch(true)} />
-        : page === 'plans' || page === 'todos' || page === 'schedules' ? <Plans key={id} assistantID={id.startsWith('assistant-') ? id.slice(10) : undefined} selectedID={id} assistants={assistants.data ?? []} />
+        : page === 'plans' || page === 'todos' || page === 'schedules' ? <Plans assistantID={id.startsWith('assistant-') ? id.slice(10) : undefined} selectedID={id} assistants={assistants.data ?? []} />
         : page === 'resources' ? <Resources resourceID={id} />
         : page === 'workbench' ? <Workbench turnID={turnID} eventID={eventID} timezone={settings.data?.Timezone} available={!!runtime.data?.workbench_available} assistants={assistants.data ?? []} assistantID={id} onSelectAssistant={value => go('workbench', value)} onSettings={() => go('account', 'general')} />
         : <Settings initialTab={id} onSelectSection={value => go('account', value)} assistants={assistants.data ?? []} openAssistant={value => go('assistants', value)} />}
