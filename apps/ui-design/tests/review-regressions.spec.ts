@@ -132,9 +132,23 @@ test('typing and open popover rerenders keep observers while callbacks stay fres
   await page.locator('#composer').evaluate(element => { element.style.width = '160px'; });
   await expect.poll(() => composer.evaluate(element => element.clientHeight)).toBeGreaterThan(originalHeight);
   expect(await page.evaluate(() => (window as any).observerCounts.composer)).toBe(initial);
-  await composer.fill('Long message '.repeat(100));
-  await expect(composer).toHaveCSS('height', '180px');
-  await composer.fill(''); await expect(composer).toHaveCSS('height', '28px');
+  for (const [size, maximum] of [['small', 168], ['standard', 192], ['large', 216]] as const) {
+    await page.evaluate(size => { document.documentElement.dataset.fontSize = size; }, size);
+    await composer.fill('Long message '.repeat(100));
+    await expect(composer).toHaveCSS('height', `${maximum}px`);
+    await expect(composer).toHaveCSS('overflow-y', 'auto');
+    await composer.fill('');
+    await expect(composer).toHaveCSS('overflow-y', 'hidden');
+    const empty = await composer.evaluate(element => {
+      const css = getComputedStyle(element);
+      return { height: element.getBoundingClientRect().height, line: parseFloat(css.lineHeight), padding: parseFloat(css.paddingTop) + parseFloat(css.paddingBottom), clipped: element.scrollHeight > element.clientHeight };
+    });
+    expect(empty.height).toBeGreaterThanOrEqual(empty.line + empty.padding);
+    expect(empty.height).toBeLessThan(empty.line + empty.padding + 1);
+    expect(empty.clipped).toBe(false);
+    expect(await page.evaluate(() => (window as any).observerCounts.composer)).toBe(initial);
+  }
+  await page.evaluate(() => { delete document.documentElement.dataset.fontSize; });
   await page.getByRole('button', { name: 'Review trigger' }).click();
   await expect(page.getByRole('dialog', { name: 'Review popover' })).toBeVisible();
   const observers = await page.evaluate(() => (window as any).observerCounts.popover);

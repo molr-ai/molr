@@ -37,11 +37,15 @@ test('desktop inherits saved account appearance only after login and preserves t
     expect(sandbox.Capabilities).toMatchObject({ Reason: 'available', Shell: true, FileIsolation: true, ProcessIsolation: true, NetworkIsolation: true, ResourceLimits: true });
   }
   const saved = await (await page.request.get('/api/settings')).json();
-  await expect.poll(latest).toEqual({ theme: saved.Theme, palette: saved.Palette });
+  await expect.poll(latest).toEqual({ theme: saved.Theme, palette: saved.Palette, fontSize: saved.FontSize });
   await palettes.getByRole('button', { name: 'Ocean', exact: true }).click();
   await expect.poll(async () => (await latest())?.palette).toBe('ocean');
   await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'Dark', exact: true }).check();
-  await expect.poll(latest).toEqual({ theme: 'dark', palette: 'ocean' });
+  await expect.poll(latest).toEqual({ theme: 'dark', palette: 'ocean', fontSize: saved.FontSize });
+
+  const fontSizes = page.getByRole('group', { name: 'Font size', exact: true });
+  await fontSizes.getByRole('radio', { name: 'Large', exact: true }).check();
+  await expect.poll(latest).toEqual({ theme: 'dark', palette: 'ocean', fontSize: 'large' });
 
   await page.route('**/api/settings', route => route.request().method() === 'POST'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"unavailable"}' })
@@ -49,18 +53,24 @@ test('desktop inherits saved account appearance only after login and preserves t
   const beforeFailure = (await calls()).length;
   await palettes.getByRole('button', { name: 'Rose', exact: true }).click();
   await expect(page.locator('.ui-toast').getByRole('alert')).toContainText('service is unavailable');
-  expect((await calls()).slice(beforeFailure)).not.toContainEqual({ theme: 'dark', palette: 'rose' });
-  expect(await latest()).toEqual({ theme: 'dark', palette: 'ocean' });
+  expect((await calls()).slice(beforeFailure)).not.toContainEqual({ theme: 'dark', palette: 'rose', fontSize: 'large' });
+  expect(await latest()).toEqual({ theme: 'dark', palette: 'ocean', fontSize: 'large' });
+  await fontSizes.getByRole('radio', { name: 'Small', exact: true }).check();
+  await expect(fontSizes.getByRole('radio', { name: 'Large', exact: true })).toBeChecked();
+  expect((await calls()).slice(beforeFailure)).not.toContainEqual({ theme: 'dark', palette: 'ocean', fontSize: 'small' });
+  expect(await latest()).toEqual({ theme: 'dark', palette: 'ocean', fontSize: 'large' });
   await page.unroute('**/api/settings');
   await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'System', exact: true }).check();
-  await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean' });
+  await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean', fontSize: 'large' });
   for (const colorScheme of ['dark', 'light'] as const) {
     await page.emulateMedia({ colorScheme });
     await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme);
-    expect(await latest()).toEqual({ theme: 'system', palette: 'ocean' });
+    expect(await latest()).toEqual({ theme: 'system', palette: 'ocean', fontSize: 'large' });
   }
   await page.reload();
-  await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean' });
+  await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean', fontSize: 'large' });
+  await fontSizes.getByRole('radio', { name: 'Standard', exact: true }).check();
+  await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean', fontSize: 'standard' });
 });
 
 for (const locale of ['zh-CN', 'en-US']) test.describe(`desktop first-time setup in ${locale}`, () => {

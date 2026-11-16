@@ -202,6 +202,7 @@ function resizeComposer(el: HTMLTextAreaElement) {
   const minimum = parseFloat(style.lineHeight) + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const maximum = parseFloat(style.maxHeight);
   el.style.height = '0px';
-  el.style.height = `${Math.min(maximum, Math.max(minimum, el.scrollHeight))}px`;
-  el.style.overflowY = el.scrollHeight > maximum ? 'auto' : 'hidden';
+  // Placeholder wrapping must not keep an empty composer expanded.
+  el.style.height = `${el.value ? Math.min(maximum, Math.max(minimum, el.scrollHeight)) : minimum}px`;
+  el.style.overflowY = el.value && el.scrollHeight > maximum ? 'auto' : 'hidden';
 }
