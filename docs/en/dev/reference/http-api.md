@@ -37,6 +37,8 @@ The Runtime remains a Go monolith and does not load Go dynamic business modules;
 - For local development, `tls_mode: "local"` can be explicitly configured: listen only on the numeric loopback interface, use HTTP loopback URLs, and do not accept proxy forwarding headers. The development session/pre-login cookies are `molr_dev_session` / `molr_dev_login`, retaining HttpOnly/SameSite=Strict while omitting Secure; the independent proof cookie is the readable `molr_dev_csrf`; the authentication and CSRF flows remain the same.
 - HTTPS is terminated directly or via an explicitly trusted proxy. The Host must match PublicURL; in proxy mode, only configured network segments are trusted, proxy HTTPS headers are validated, and trusted proxy addresses are stripped from right to left. Cross-origin sources must be explicitly configured; wildcards are not used.
 
+Committed file deletion publishes `file.deleted` with `Object.Kind: file` and the file ID in `Object.ID`. The event and metadata deletion share one transaction; rollback does not notify observers. Clients invalidate attachment metadata and previews using this event, which contains no file body.
+
 ## GET Response Cache
 
 The Runtime enables an in-memory cache with a fixed five-minute TTL after successful insertion for these GET routes: `/api/account/usage`, `/api/account/quotas`, `/api/account/storage`, `/api/admin/storage`, `/api/admin/usage/analytics`, `/api/admin/usage`, `/api/sandbox`, `/api/sandboxes`, and `/api/sandboxes/{id}/resources`. Shared assistant, grant, resource, and model lists remain live. Browser responses retain `Cache-Control: no-store`; cached values belong to the current Runtime process and disappear on restart.

@@ -37,6 +37,8 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 - 本机开发可显式配置 `tls_mode: "local"`：仅数字回环监听，HTTP 回环 URL，不接受代理转发头。开发会话/预登录 Cookie 为 `molr_dev_session` / `molr_dev_login`，保留 HttpOnly/SameSite=Strict，省略 Secure；独立 proof Cookie 为可读的 `molr_dev_csrf`；认证与 CSRF 流程相同。
 - HTTPS 直接终止或显式可信代理。Host 必须匹配 PublicURL；代理模式只信任配置网段，验证代理 HTTPS 头并从右向左剥离可信代理地址。跨域来源必须显式配置，不使用通配符。
 
+文件删除成功提交时发布 `file.deleted`，`Object.Kind` 为 `file`，`Object.ID` 为文件 ID；事件与元信息删除在同一事务内提交，回滚不会通知。客户端据此清除附件元信息与预览缓存，事件不包含文件正文。
+
 ## GET 响应缓存
 
 默认对以下 GET 接口启用 Runtime 内存缓存，有效期为写入成功后的 5 分钟：`/api/account/usage`、`/api/account/quotas`、`/api/account/storage`、`/api/admin/storage`、`/api/admin/usage/analytics`、`/api/admin/usage`、`/api/sandbox`、`/api/sandboxes` 和 `/api/sandboxes/{id}/resources`。助理、授权、资源、模型等共享列表保持实时读取。浏览器响应仍使用 `Cache-Control: no-store`，缓存仅存在当前 Runtime 进程中，重启后清空。

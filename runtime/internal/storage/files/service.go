@@ -18,6 +18,8 @@ import (
 )
 
 type Options struct {
+	// Deleted participates in the metadata transaction; observers wake only after commit.
+	Deleted          func(context.Context, File) error
 	Authorizer       policy.Authorizer
 	AuthorizeChannel func(context.Context, core.ID, core.ID, core.ID) error
 	Now              func() time.Time
@@ -213,7 +215,13 @@ func (s *fileService) Delete(ctx context.Context, p core.Principal, id core.ID) 
 		if err := tx.Get(ctx, Bucket, persistence.Key(p.OwnerID, id), &file); err != nil {
 			return err
 		}
-		return tx.Delete(ctx, Bucket, persistence.Key(p.OwnerID, id))
+		if err := tx.Delete(ctx, Bucket, persistence.Key(p.OwnerID, id)); err != nil {
+			return err
+		}
+		if s.options.Deleted != nil {
+			return s.options.Deleted(ctx, file)
+		}
+		return nil
 	})
 	if err != nil {
 		return err

@@ -62,14 +62,15 @@ test('adding and removing draft images keeps unchanged previews without download
   await expect(firstImage).toHaveJSProperty('naturalWidth', 240);
   expect.soft(downloads.get(path)).toBe(1);
   expect.soft(await firstImage.getAttribute('src')).toBe(original);
-  expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), secondURL)).toBe(true);
+  expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), secondURL)).toBe(false);
   await info.attach('preview-downloads', { body: JSON.stringify({ downloads: Object.fromEntries(downloads), original, final: await firstImage.getAttribute('src') }, null, 2), contentType: 'application/json' });
   await page.evaluate(() => { location.hash = '/account/theme'; });
   await expect(draft).toHaveCount(0);
-  await expect.poll(() => page.evaluate(url => window.previewURLs.revoked.includes(url!), original)).toBe(true);
+  expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), original)).toBe(false);
   await page.evaluate(id => { location.hash = '/assistants/' + id; }, assistant.ID);
   await expect(firstImage).toHaveJSProperty('naturalWidth', 240);
-  expect(await firstImage.getAttribute('src')).not.toBe(original);
+  expect(await firstImage.getAttribute('src')).toBe(original);
+  expect(downloads.get(path)).toBe(1);
 });
 
 test('unchanged pending previews survive additions and removed previews cannot publish late', async ({ page }, info) => {
@@ -98,7 +99,7 @@ test('unchanged pending previews survive additions and removed previews cannot p
     await expect(ready).toHaveAttribute('src', readyURL!);
     expect(downloads.get(`/api/files/${first.ID}/content`)).toBe(1);
     await page.evaluate(() => { location.hash = '/account/theme'; });
-    await expect.poll(() => page.evaluate(url => window.previewURLs.revoked.includes(url!), readyURL)).toBe(true);
+    expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), readyURL)).toBe(false);
   } finally { release(); }
 });
 
@@ -117,4 +118,52 @@ test('failed image previews retry on attachment changes while successful preview
   await expect(draft.getByRole('img', { name: 'retry.svg', exact: true })).toHaveJSProperty('naturalWidth', 240);
   await expect(draft.getByRole('img', { name: 'next.svg', exact: true })).toHaveJSProperty('naturalWidth', 240);
   await expect(draft.locator('.ui-image-gallery__error')).toHaveCount(0);
+});
+
+
+test('assistant switches reuse messages, file metadata and previews; deletion and logout release images', async ({ page }, info) => {
+  const assistant = await setup(page, `shared-${info.project.name}`);
+  const other = await post<Assistant>(page, '/api/assistants', { Name: `Other cache ${info.project.name}`, ModelID: assistant.ModelID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  const image = await uploadFile(page, 'shared.svg');
+  await expect(page.locator('.composer-attachments').getByRole('img', { name: 'shared.svg', exact: true })).toHaveJSProperty('naturalWidth', 240);
+  const textResponse = page.waitForResponse(r => new URL(r.url()).pathname === '/api/files' && r.request().method() === 'POST');
+  await page.locator('.chat-input input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('ordinary attachment body') });
+  const document: FileInfo = await (await textResponse).json();
+  await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Cached message with files', AttachmentIDs: [image.ID, document.ID] } });
+  const log = page.getByRole('log');
+  await expect(log.getByText('Cached message with files', { exact: true })).toBeVisible();
+  const preview = log.getByRole('img', { name: 'shared.svg', exact: true });
+  await expect(preview).toHaveJSProperty('naturalWidth', 240);
+  const url = await preview.getAttribute('src');
+  expect(await page.locator('.composer-attachments').getByRole('img', { name: 'shared.svg', exact: true }).getAttribute('src')).toBe(url);
+  const reads: string[] = [], history: string[] = [];
+  page.on('request', r => {
+    if (r.method() !== 'GET') return;
+    const parsed = new URL(r.url());
+    if (parsed.pathname.startsWith('/api/files/')) reads.push(parsed.pathname);
+    if (parsed.pathname === `/api/conversations/${assistant.ConversationID}/messages`) history.push(parsed.search);
+  });
+  await page.evaluate(id => { location.hash = '/assistants/' + id; }, other.ID);
+  await expect(log.getByText('Cached message with files', { exact: true })).toHaveCount(0);
+  await page.evaluate(id => { location.hash = '/assistants/' + id; }, assistant.ID);
+  await expect(preview).toHaveJSProperty('naturalWidth', 240);
+  expect(await preview.getAttribute('src')).toBe(url);
+  await expect.poll(() => history.length).toBeGreaterThan(0);
+  expect(history.every(query => query.includes('after_sequence=') || query.includes('message_id='))).toBe(true);
+  expect(reads).toEqual([]);
+  const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
+  // Use another client, so only the committed SSE event can invalidate the page.
+  const removed = await page.request.delete(`/api/files/${image.ID}`, { headers: { Origin: base, 'X-CSRF-Token': csrf } });
+  expect(removed.ok()).toBe(true);
+  await expect(preview).toHaveCount(0);
+  expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), url)).toBe(true);
+  expect(reads).not.toContain(`/api/files/${document.ID}/content`);
+  await uploadFile(page, 'logout.svg');
+  await expect(page.locator('.composer-attachments').getByRole('img', { name: 'logout.svg', exact: true })).toHaveJSProperty('naturalWidth', 240);
+  const logoutURL = await page.locator('.composer-attachments').getByRole('img', { name: 'logout.svg', exact: true }).getAttribute('src');
+  await page.evaluate(() => { location.hash = '/account/security'; });
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  expect(await page.evaluate(url => window.previewURLs.revoked.includes(url!), logoutURL)).toBe(true);
+  expect(await page.evaluate(url => window.previewURLs.active.includes(url!), logoutURL)).toBe(false);
 });

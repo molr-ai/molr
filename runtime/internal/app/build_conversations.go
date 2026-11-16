@@ -17,6 +17,7 @@ import (
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/storage/files"
 	"path/filepath"
+	"time"
 )
 
 type chatServices struct {
@@ -36,7 +37,9 @@ func (b *Bundle) buildConversations(ctx context.Context, cfg config.Config, key 
 		return chatServices{}, err
 	}
 	channelRouter := &chatChannels{}
-	fileService := files.NewService(store, b.objects, files.Options{Authorizer: permissions, AuthorizeChannel: func(ctx context.Context, owner, chat, binding core.ID) error {
+	fileService := files.NewService(store, b.objects, files.Options{Authorizer: permissions, Deleted: func(ctx context.Context, file files.File) error {
+		return realtime.NewStore(store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: file.OwnerID, Topic: "file.deleted", Object: core.Object{Kind: "file", ID: file.ID}, CreatedAt: time.Now().UTC()})
+	}, AuthorizeChannel: func(ctx context.Context, owner, chat, binding core.ID) error {
 		if len(channelRouter.items) == 0 {
 			return core.NewError(core.Forbidden, "channel unavailable")
 		}
