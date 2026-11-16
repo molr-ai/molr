@@ -46,7 +46,7 @@ export function Settings({ assistants, openAssistant, initialTab = '', onSelectS
   const current = sections.find(item => item.value === active);
   const select = (value: string) => onSelectSection?.(value);
   return <section className="settings-workspace">
-    <PageHeader className="settings-header" title={mobile && current ? current.label : locale === 'zh' ? '用户设置' : 'User settings'} icon={<SettingsIcon />} leading={mobile && current && onSelectSection ? <IconButton label={t.back} onClick={() => select('')}><ChevronLeft size={18} /></IconButton> : undefined} actions={principal?.User?.Administrator && <Button className="settings-admin-button" variant="secondary" size="sm" onClick={() => navigate('settings')}><Shield size={16} aria-hidden="true" />{t.account.admin}</Button>} />
+    <PageHeader className="settings-header" title={mobile && current ? current.label : locale === 'zh' ? '用户设置' : 'User settings'} icon={<SettingsIcon />} leading={mobile && current && onSelectSection ? <IconButton label={t.back} onClick={() => select('')}><ChevronLeft size={18} /></IconButton> : undefined} actions={principal?.User?.Administrator && (mobile ? <IconButton label={t.account.admin} onClick={() => navigate('settings')}><Shield size={18} /></IconButton> : <Button className="settings-admin-button" variant="secondary" size="sm" onClick={() => navigate('settings')}><Shield size={16} aria-hidden="true" />{t.account.admin}</Button>)} />
     <div className="settings-body">
       <SlidingHighlight as="nav" value={active} disabled={mobile} className="settings-nav" aria-label={locale === 'zh' ? '用户设置' : 'User settings'} hidden={mobile && !!current}>
         {sections.map(item => {

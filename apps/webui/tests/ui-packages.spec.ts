@@ -76,8 +76,11 @@ test('plugin theme replaces plans and preserves default chat drafts and messages
   await page.goto(`/#/assistants/${selected.ID}`);
   await page.locator('.chat-input textarea').fill('A shared draft');
   await page.goto('/#/account/theme'); await chooseTheme(page, fixtureThemeName);
+  await page.getByRole('group', { name: 'Font size', exact: true }).getByRole('radio', { name: 'Large', exact: true }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'large');
   await page.goto('/#/plans');
   await expect(page.frameLocator('iframe').getByText('Fixture plans', { exact: true })).toBeVisible();
+  await expect(page.frameLocator('iframe').getByText('Fixture plans', { exact: true })).toHaveCSS('font-size', '18px');
   await page.goto(`/#/assistants/${selected.ID}`);
   await expect(page.locator('.assistant-workspace')).toBeVisible();
   await expect(page.locator('.chat-input textarea')).toHaveValue('A shared draft');

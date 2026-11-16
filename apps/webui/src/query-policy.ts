@@ -3,7 +3,7 @@ import type { QueryInterval } from './query-store';
 // Events provide prompt updates; these intervals reconcile missed/cross-client changes.
 export function queryInterval(path: string): QueryInterval {
   const url = path.split('?')[0];
-  if (url === '/api/status' || /\/debug\/runs\/[^/]+\/steps\//.test(url) || /^\/api\/files\/[^/]+$/.test(url)) return 0;
+  if (url === '/api/settings' || url === '/api/status' || /\/debug\/runs\/[^/]+\/steps\//.test(url) || /^\/api\/files\/[^/]+$/.test(url)) return 0;
   if (['/api/account/quotas', '/api/admin/usage', '/api/account/usage', '/api/admin/usage/analytics', '/api/resource-usage'].includes(url)) return 30_000;
   if (/\/assistants\/[^/]+\/(status|shell-tasks)$/.test(url)) return 0;
   if (url === '/api/dreams') return data => Array.isArray(data) && data.some(run => [run.State, run.SessionState].some(state => ['queued', 'running', 'committing'].includes(state))) ? 5000 : 30_000;

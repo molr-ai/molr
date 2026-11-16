@@ -87,7 +87,7 @@ export function TerminalSession({ assistantID, task, refresh }: { assistantID: s
   }
   useEffect(() => {
     alive.current = true;
-    const term = new Terminal({ cols: task.Terminal?.Cols || 80, rows: task.Terminal?.Rows || 24, cursorBlink: true, fontSize: 13, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', scrollback: 5000, allowProposedApi: false, disableStdin: true, linkHandler: { activate: () => {} } });
+    const term = new Terminal({ cols: task.Terminal?.Cols || 80, rows: task.Terminal?.Rows || 24, cursorBlink: true, fontSize: parseFloat(getComputedStyle(host.current!).fontSize), fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', scrollback: 5000, allowProposedApi: false, disableStdin: true, linkHandler: { activate: () => {} } });
     const fitter = new FitAddon(); term.loadAddon(fitter); term.open(host.current!); terminal.current = term; fit.current = fitter;
     term.textarea?.setAttribute('aria-label', zh ? '终端输入' : 'Terminal input');
     // Terminal output must not write to the browser clipboard, change the page
@@ -98,7 +98,13 @@ export function TerminalSession({ assistantID, task, refresh }: { assistantID: s
     const resize = new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
       if (canWrite()) { fitter.fit(); enqueue({ action: 'resize', rows: Math.min(500,term.rows), cols: Math.min(500,term.cols) }); }
     }, 200); }); resize.observe(host.current!);
-    const theme = () => { if (!host.current) return; const css = getComputedStyle(host.current); const color = (name: string) => css.getPropertyValue(`--color-terminal-${name}`).trim();
+    const theme = () => { if (!host.current) return; const css = getComputedStyle(host.current);
+      const fontSize = parseFloat(css.fontSize);
+      if (term.options.fontSize !== fontSize) {
+        term.options.fontSize = fontSize;
+        if (canWrite()) { fitter.fit(); enqueue({ action: 'resize', rows: Math.min(500, term.rows), cols: Math.min(500, term.cols) }); }
+      }
+      const color = (name: string) => css.getPropertyValue(`--color-terminal-${name}`).trim();
       term.options.theme = { background: color('background'), foreground: color('foreground'), cursor: color('foreground'), cursorAccent: color('background'), selectionBackground: color('selection'), black: color('black'), red: color('red'), green: color('green'), yellow: color('yellow'), blue: color('blue'), magenta: color('magenta'), cyan: color('cyan'), white: color('white'), brightBlack: color('bright-black'), brightRed: color('red'), brightGreen: color('green'), brightYellow: color('yellow'), brightBlue: color('blue'), brightMagenta: color('magenta'), brightCyan: color('cyan'), brightWhite: color('white') }; };
     theme(); const observer = new MutationObserver(theme); observer.observe(document.documentElement, { attributes: true });
     const scope = host.current?.closest('[data-ui-theme]'); if (scope) observer.observe(scope, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });

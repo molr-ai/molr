@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/memory"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 )
@@ -154,7 +155,7 @@ func (s *service) Get(ctx context.Context, p core.Principal) (Settings, error) {
 		var err error
 		result, err = s.repo.Get(ctx, p.OwnerID)
 		if persistence.Missing(err) {
-			result = Settings{OwnerID: p.OwnerID, Language: "en", Timezone: "UTC", Currency: "USD", Theme: System, Palette: Forest, UITheme: DefaultUITheme}
+			result = Settings{OwnerID: p.OwnerID, Language: "en", Timezone: "UTC", Currency: "USD", Theme: System, Palette: Forest, UITheme: DefaultUITheme, FontSize: FontStandard}
 			return nil
 		}
 		if !s.options.WorkbenchAvailable {
@@ -207,6 +208,9 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		if len(v.UITheme) > 162 || !uiThemePattern.MatchString(v.UITheme) {
 			return v, invalid("ui_theme")
 		}
+		if v.FontSize != FontSmall && v.FontSize != FontStandard && v.FontSize != FontLarge {
+			return v, invalid("font_size")
+		}
 		switch v.Palette {
 		case Forest, Ocean, Iris, Sand, Rose, Monochrome:
 		default:
@@ -223,7 +227,10 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		}
 
 		v.Version = req.Mutation.ExpectedVersion + 1
-		return v, s.repo.Save(ctx, v, req.Mutation.ExpectedVersion)
+		if err := s.repo.Save(ctx, v, req.Mutation.ExpectedVersion); err != nil {
+			return v, err
+		}
+		return v, realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: s.id(), OwnerID: p.OwnerID, Topic: "settings.changed", Object: core.Object{Kind: "settings", ID: p.OwnerID}, Version: v.Version, CreatedAt: s.now()})
 	})
 }
 func (s *service) verify(ctx context.Context, p core.Principal, v auth.Verification, purpose string) error {

@@ -31,6 +31,7 @@ test('message events preserve exact-message reconciliation and fallback refresh'
   expect(eventInvalidation({ Topic: 'shell.tasks', Object: { ID: 'assistant' } })).toEqual({ topics: ['shell-tasks:assistant', 'browser:assistant'] });
   expect(eventInvalidation({ Topic: 'assistant.profile', Object: { ID: 'assistant' } })).toEqual({ topics: ['assistants', 'conversations'] });
   expect(eventInvalidation({ Topic: 'assistant.changed', Object: { ID: 'assistant' } }).topics).toEqual(['status:assistant', 'activity', 'tasks', 'dreams', 'memories', 'usage']);
+  expect(eventInvalidation({ Topic: 'settings.changed' })).toEqual({ topics: ['settings'] });
   expect(eventInvalidation({ Topic: 'notification.changed' })).toEqual({ topics: ['notifications'] });
   for (const channel of ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram']) expect(eventInvalidation({ Topic: `${channel}.changed` })).toEqual({ topics: [channel] });
   expect(eventInvalidation({ Topic: 'permission.request' }).topics).toEqual(['permission-requests', 'grants', 'status', 'assistants']);

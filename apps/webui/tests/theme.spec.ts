@@ -89,3 +89,56 @@ test('failed palette saves restore the current choice and successful saves prese
   await expect(page.getByRole('group', { name: 'Display mode', exact: true })).toHaveCount(0);
   await expect(page.getByRole('switch', { name: 'Reduce motion', exact: true })).toHaveCount(0);
 });
+
+test('font sizes persist across devices, inherit through local color scopes and keep narrow settings usable', async ({ page, browser }, info) => {
+  await login(page);
+  const group = page.getByRole('group', { name: 'Font size', exact: true });
+  const initial = await settings(page);
+  for (const [value, label, body, caption] of [['small', 'Small', 13, 12], ['standard', 'Standard', 14, 12], ['large', 'Large', 16, 14]] as const) {
+    await group.getByRole('radio', { name: label, exact: true }).check();
+    await expect(page.locator('html')).toHaveAttribute('data-font-size', value);
+    await expect.poll(async () => (await settings(page)).FontSize).toBe(value);
+    await expect(group.locator('.radio-option').first()).toHaveCSS('font-size', `${body}px`);
+    await expect(page.locator('.settings-description').first()).toHaveCSS('font-size', `${caption}px`);
+    // Color-only scopes must not redefine the inherited type scale.
+    await group.evaluate(el => el.setAttribute('data-ui-theme', ''));
+    await expect(group.locator('.radio-option').first()).toHaveCSS('font-size', `${body}px`);
+    await page.setViewportSize({ width: 320, height: 720 });
+    await expect(page.locator('.settings-header h1')).toBeVisible();
+    expect(await page.locator('.settings-header h1').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await page.locator('.settings-theme').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    for (const radio of await group.locator('.radio-option').all()) expect(await radio.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  const after = await settings(page);
+  for (const field of ['Language', 'Timezone', 'Currency', 'Theme', 'Palette', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(initial[field]);
+  await page.reload();
+  await expect(group.getByRole('radio', { name: 'Large', exact: true })).toBeChecked();
+  await page.screenshot({ path: info.outputPath('font-large-narrow.png') });
+  const other = await browser.newContext({ locale: 'en-US' });
+  try {
+    const next = await other.newPage(); await login(next);
+    await expect(next.locator('html')).toHaveAttribute('data-font-size', 'large');
+    await group.getByRole('radio', { name: 'Standard', exact: true }).check();
+    await expect(next.locator('html')).toHaveAttribute('data-font-size', 'standard');
+  } finally { await other.close(); }
+});
+
+test('failed font saves preserve the confirmed scale and keyboard selection saves normally', async ({ page }) => {
+  await login(page);
+  const group = page.getByRole('group', { name: 'Font size', exact: true });
+  await group.getByRole('radio', { name: 'Standard', exact: true }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'standard');
+  const before = await settings(page);
+  await page.route('**/api/settings', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"unavailable"}' }) : route.continue());
+  await group.getByRole('radio', { name: 'Large', exact: true }).check();
+  await expect(page.locator('.ui-toast').getByRole('alert')).toBeVisible();
+  await expect(group.getByRole('radio', { name: 'Standard', exact: true })).toBeChecked();
+  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'standard');
+  expect((await settings(page)).Version).toBe(before.Version);
+  await page.unroute('**/api/settings');
+  await group.getByRole('radio', { name: 'Standard', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'large');
+  await expect.poll(async () => (await settings(page)).FontSize).toBe('large');
+  await group.getByRole('radio', { name: 'Standard', exact: true }).check();
+});

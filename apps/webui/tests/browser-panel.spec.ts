@@ -136,7 +136,8 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   expect(await iconPosition()).toEqual(bareIcon);
   const badge = trigger.locator('.badge');
   await expect(badge).toHaveCSS('position', 'absolute');
-  await expect(badge).toHaveCSS('font-size', '9px');
+  const fontSize = await page.locator('html').getAttribute('data-font-size');
+  await expect(badge).toHaveCSS('font-size', fontSize === 'large' ? '14px' : '12px');
   await page.getByRole('button', { name: 'Take control', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
   const checkFilled = async () => {

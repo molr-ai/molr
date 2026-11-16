@@ -18,6 +18,14 @@ const (
 	Dark   Theme = "dark"
 )
 
+type FontSize string
+
+const (
+	FontSmall    FontSize = "small"
+	FontStandard FontSize = "standard"
+	FontLarge    FontSize = "large"
+)
+
 type Palette string
 
 const (
@@ -40,6 +48,7 @@ type Settings struct {
 	Theme          Theme
 	UITheme        string
 	Palette        Palette
+	FontSize       FontSize
 	DefaultModelID core.ID
 
 	ReducedMotion    bool

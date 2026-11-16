@@ -6,8 +6,8 @@
 .skeleton-showcase__list { display: grid; gap: 24px; }
 .skeleton-showcase__row { display: flex; align-items: center; gap: 12px; min-height: 48px; }
 .skeleton-showcase__text { display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 0; min-height: 48px; flex: 1; }
-.skeleton-showcase__text strong { font-size: 14px; font-weight: 550; line-height: 18px; }
-.skeleton-showcase__text p { margin: 0; font-size: 12px; color: var(--color-text-muted); line-height: 20px; }
+.skeleton-showcase__text strong { font-size: var(--text-sm); font-weight: 550; line-height: 1.286; }
+.skeleton-showcase__text p { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.667; }
 .skeleton-showcase__text strong, .skeleton-showcase__text p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .skeleton-showcase__avatar { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--color-skeleton-base); }
 .skeleton-showcase__card { display: grid; gap: 16px; }

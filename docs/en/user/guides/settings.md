@@ -12,6 +12,8 @@ General settings manage preferences such as language, time zone, and currency. L
 
 For viewing, editing, and dreaming time of memories, see [Memory Guide](memory.md). For selecting default models and assistant models, see [Permissions and Budget](permissions-and-budget.md#selecting-models).
 
+The theme page offers Small, Standard and Large font sizes, with Standard as the default. Changes save automatically and apply to interface text, chat and composer text, code and terminals across your signed-in devices. Failed saves retain your previous setting.
+
 ## Usage
 
 User Settings → Usage has Models, Tools and Storage tabs. Switching tabs preserves model filters. Models opens with this year's statistics. Choose this month, the last 30/90 days, a previous year, or a custom range of up to one year, and filter by assistant and model. The overview shows input, output, cached input, total tokens, confirmed model spend, model calls and active days. Total tokens are input plus output; cached input is already included. Calls without reported usage are identified separately, not treated as zero consumption.

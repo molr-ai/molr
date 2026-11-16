@@ -16,7 +16,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 )
 
-const schemaVersion uint32 = 3
+const schemaVersion uint32 = 4
 
 // DB owns the engine and an OS-backed lock shared with offline restore. The
 // application data-directory lock can be held independently of this DB lock.
@@ -88,7 +88,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	steps := map[uint32]func(context.Context, persistence.Tx) error{2: migratePlans}
+	steps := map[uint32]func(context.Context, persistence.Tx) error{2: migratePlans, 3: migrateFontSize}
 	if current.Version > schemaVersion {
 		return core.NewError(core.FailedPrecondition, "database is newer than this server")
 	}

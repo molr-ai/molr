@@ -17,7 +17,7 @@ export async function installThemeFixture(page: Page) {
     manifest: { manifestVersion: 1, pluginApi: 3, id: 'fixture.theme', name: 'Theme fixture', description: 'Theme integration test fixture', version: '1.0.0', contributes: {
       themes: [{ id: 'theme', name: fixtureThemeName, pages: { plans: 'page.html' }, capabilities: [] }], pages: [], tools: [],
     } },
-    files: { 'page.html': `<p>Fixture plans</p><script>parent.postMessage({type:'molr.plugin.ready',apiVersion:2},'*')</script>` },
+    files: { 'page.html': `<p style="font-size:var(--text-base)">Fixture plans</p><script>addEventListener('message',event=>{if(event.source!==parent||event.data?.type!=='molr.plugin.connect')return;document.documentElement.dataset.fontSize=event.data.context.fontSize;for(const [key,value] of Object.entries(event.data.context.tokens))document.documentElement.style.setProperty(key,value)});parent.postMessage({type:'molr.plugin.ready',apiVersion:2},'*')</script>` },
   };
   const installed = await post('/api/plugins/install', pkg);
   await post('/api/plugins/configure', { ID: pkg.manifest.id, ExpectedVersion: installed.Version, Enabled: true, Grants: [], Bindings: [] });

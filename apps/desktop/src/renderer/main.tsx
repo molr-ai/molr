@@ -9,7 +9,7 @@ import './style.css';
 
 declare global { interface Window { molrDesktop?: DesktopAPI } }
 const bridge = window.molrDesktop;
-let initial: DesktopState = { appearance: { theme: 'system', palette: 'forest' }, connections: [], view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
+let initial: DesktopState = { appearance: { theme: 'system', palette: 'forest', fontSize: 'standard' }, connections: [], view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
 let initialLoaded = !bridge;
 // Restore host-owned appearance and native safe-area attributes before mounting.
 // Old manager-local preferences are only a rendering cache, never authoritative.
@@ -22,6 +22,7 @@ try {
 } catch { /* Appearance still works without browser storage. */ }
 document.documentElement.dataset.theme = initial.appearance.theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : initial.appearance.theme;
 document.documentElement.dataset.palette = initial.appearance.palette;
+document.documentElement.dataset.fontSize = initial.appearance.fontSize;
 const stateNames: Record<string, string> = { checking: '检测中', active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载', missing: '尚未安装', unavailable: '暂不可用', activating: '启动中', deactivating: '停止中' };
 const actionNames: Record<LocalAction, string> = { install: '安装', start: '启动', stop: '停止', restart: '重启', upgrade: '更新', uninstall: '卸载' };
 type Page = 'list' | 'add' | 'remote' | 'install' | 'local';
@@ -47,7 +48,8 @@ function App() {
   useLayoutEffect(() => {
     changePreference(state.appearance.theme, { animate: false });
     changePalette(state.appearance.palette);
-  }, [state.appearance.theme, state.appearance.palette, changePreference, changePalette]);
+    document.documentElement.dataset.fontSize = state.appearance.fontSize;
+  }, [state.appearance.theme, state.appearance.palette, state.appearance.fontSize, changePreference, changePalette]);
   useEffect(() => {
     if (!bridge) return;
     let mounted = true;

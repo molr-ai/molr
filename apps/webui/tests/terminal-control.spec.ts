@@ -36,6 +36,17 @@ test('real terminal shares workspace, fences old controllers and reconnects', as
   const initial=(await list()).find((t:{State:string})=>t.State==='running'); expect(initial.Terminal.Control).toBe('user');
   // The stream can connect before the shell has initialized its terminal mode.
   await expect(page.locator('.xterm-screen')).toContainText('~ $');
+  const terminalNode = await page.locator('.xterm-screen').elementHandle();
+  for (const [FontSize, pixels] of [['large', 16], ['small', 13], ['standard', 14]] as const) {
+    const Settings = await (await page.request.get('/api/settings')).json();
+    const response = await page.request.post('/api/settings', { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { Settings: { ...Settings, FontSize }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: Settings.Version } } });
+    expect(response.status()).toBe(200);
+    await expect(page.locator('.terminal-screen')).toHaveCSS('font-size', `${pixels}px`);
+    await expect.poll(() => terminalNode!.evaluate(el => el.isConnected)).toBe(true);
+    await expect(page.locator('.xterm-screen')).toContainText('~ $');
+    expect((await list()).find((t: { ID: string }) => t.ID === initial.ID).State).toBe('running');
+  }
+
   async function type(target:Page,command:string){const input=target.getByRole('textbox',{name:'Terminal input',exact:true});await expect(input).toBeEnabled();await input.focus();await target.keyboard.insertText(command);await target.keyboard.press('Enter');}
   await type(page,"printf '\\344\\270\\255\\346\\226\\207-terminal-ok\\n' > terminal-proof.txt; cat terminal-proof.txt");
   await expect(page.locator('.xterm-screen')).toContainText('中文-terminal-ok');

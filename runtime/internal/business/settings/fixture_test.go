@@ -100,7 +100,7 @@ func init() {
 		ctx := testkit.Context(t)
 		now := time.Now().UTC()
 		repo := NewRepository(db)
-		initial := Settings{OwnerID: "owner", Language: "en", Timezone: "UTC", Currency: "USD", Theme: System, Version: 1}
+		initial := Settings{OwnerID: "owner", Language: "en", Timezone: "UTC", Currency: "USD", Theme: System, FontSize: FontStandard, Version: 1}
 		if err := repo.Save(ctx, initial, 0); err != nil {
 			t.Fatal(err)
 		}

@@ -5,6 +5,7 @@ export type AppWindowState = {
   titlebarInset?: number;
 };
 export type AppAppearance = {
+  fontSize: 'small' | 'standard' | 'large';
   theme: 'system' | 'light' | 'dark';
   palette: 'forest' | 'ocean' | 'iris' | 'sand' | 'rose' | 'monochrome';
 };

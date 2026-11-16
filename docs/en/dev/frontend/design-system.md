@@ -35,3 +35,21 @@ Checks should cover six color palettes, light/dark modes, and desktop and narrow
 ## Light and dark transitions
 
 The website, WebUI and desktop App share `useTheme`: switching to dark expands a dark circle from the bottom left to cover the viewport; switching to light contracts the dark circle toward the bottom right over 550ms. View Transition snapshots switch content and backgrounds together, with a radius covering the viewport diagonal. Initial loading, account appearance restoration, system changes and cross-tab synchronization apply immediately. Manually choosing system mode animates when the resolved theme changes. System or account reduced motion, hidden pages and unsupported browsers switch immediately. Rapid input preserves the latest selection.
+
+## Typography and font size
+
+Application text uses the shared scale in `packages/ui/src/tokens.css`. Do not hard-code font sizes in pages, components or inline styles. Choose sizes by role; distinguish setting groups and items with weight rather than ever-smaller text.
+
+| Token and role | Small | Standard | Large |
+| --- | --- | --- | --- |
+| `--text-xs`: help, time, status, badges | 12 | 12 | 14 |
+| `--text-sm`: navigation, controls, list names, code, terminals | 13 | 14 | 16 |
+| `--text-base`: chat, composer, reading text, minor headings | 14 | 16 | 18 |
+| `--text-lg`: page and dialog headings | 18 | 20 | 24 |
+| `--text-xl`: metrics and prominent values | 22 | 24 | 28 |
+
+Values are CSS pixels at the browser default font setting; tokens use rem. The account preference changes `data-font-size`, keeping root font size and spacing unchanged. Local color scopes inherit typography. Standard is the default; supporting text remains at least 12px even in Small. Use unitless line heights, minimum control heights, padding and wrapping on narrow screens.
+
+Markdown headings scale relative to body text; avatar initials follow avatar geometry. Website marketing headings, design specimens and miniature product illustrations retain display-specific sizes. The hidden clipboard fallback uses 16px to avoid mobile focus zoom. Terminals read computed host font size and update their rows and columns without reconnecting. `npm run check:typography` checks fixed pixel sizes in CSS, font shorthand and JS; exceptions are centralized in the checker.
+
+Acceptance covers all three sizes, both display modes, six palettes, desktop and narrow layouts, and long Chinese and English copy. Check clipped control text, overlays, composer sizing, history reading and terminal connections.

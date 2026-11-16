@@ -378,6 +378,8 @@ Currency and Exchange Rates: `Settings.Currency` supports `USD` / `CNY`, used as
 
 ### Plugin Display
 
+Font size: `Settings.FontSize` accepts `small`, `standard`, or `large`; new accounts default to `standard`. Updates use the existing settings version check and publish an account-scoped `settings.changed` event after commit. Database migration fills existing data; empty and unknown values are rejected.
+
 Plugin Display: `Settings.PluginsVisible` is an account-level boolean preference, defaulting to `false`, read and written via the existing `GET /api/settings` and settings update interfaces. It only controls WebUI display and does not change plugin installation, start/stop, authorization, or tool execution.
 
 ## Models and Initial Configuration

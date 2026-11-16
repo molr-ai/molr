@@ -111,7 +111,7 @@ The handshake checks the frame window, opaque origin, API 2, and single MessageC
 | `connections.list()` | `connections.read` |
 | `connections.test({connectionId, idempotencyKey})` | `connections.test` |
 
-The host context provides only locale, theme, reducedMotion, and semantic style tokens. Temporary state is lost after frame reconstruction; persistent configuration must use settings. Page methods cannot select OwnerID, package digest, or other plugin identities.
+The host context provides only locale, theme, reducedMotion, fontSize, and semantic style tokens (including `--text-xs` through `--text-xl`). Temporary state is lost after frame reconstruction; persistent configuration must use settings. Page methods cannot select OwnerID, package digest, or other plugin identities.
 
 ## Lifecycle and HTTP Routing
 

@@ -82,7 +82,7 @@ func TestMigrateV2LifecycleCheckpointAndBackup(t *testing.T) {
 		t.Fatal("old response shape replayed", replay, err)
 	}
 	schema := read("system", "schema")
-	if string(schema["Version"]) != "3" || schema["CheckpointVersion"] != nil {
+	if string(schema["Version"]) != "4" || schema["CheckpointVersion"] != nil {
 		t.Fatal(schema)
 	}
 	if err = db.Migrate(ctx); err != nil {
@@ -153,5 +153,64 @@ func TestUnversionedDataAndUnknownCheckpointAreRejected(t *testing.T) {
 				t.Fatal("unknown format accepted")
 			}
 		})
+	}
+}
+
+func TestMigrateV3FontSizePreservesSettingsAndRollsBack(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := t.Context()
+	err = db.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Put(ctx, "system", "schema", Schema{Version: 3}); err != nil {
+			return err
+		}
+		if err := tx.Put(ctx, "business.settings.receipts", "owner/receipt", json.RawMessage(`{"Digest":"same","Result":{"OwnerID":"owner","Theme":"dark","Version":7}}`)); err != nil {
+			return err
+		}
+		return tx.Put(ctx, "business.settings", "owner", json.RawMessage(`{"OwnerID":"owner","Theme":"dark","Palette":"iris","Version":7,"Language":"zh","Timezone":"Asia/Shanghai"}`))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	injected := errors.New("font migration interrupted")
+	db.InjectMigrationError(injected)
+	if err := db.Migrate(ctx); !errors.Is(err, injected) {
+		t.Fatal(err)
+	}
+	before, err := persistence.Load[map[string]json.RawMessage](ctx, db.Store(), "business.settings", "owner")
+	if err != nil || before["FontSize"] != nil {
+		t.Fatal("partial migration", before, err)
+	}
+	schema, err := db.Schema(ctx)
+	if err != nil || schema.Version != 3 {
+		t.Fatal(schema, err)
+	}
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	after, err := persistence.Load[map[string]json.RawMessage](ctx, db.Store(), "business.settings", "owner")
+	if err != nil || string(after["FontSize"]) != `"standard"` {
+		t.Fatal(after, err)
+	}
+	for key, value := range before {
+		if string(after[key]) != string(value) {
+			t.Fatal("changed field", key)
+		}
+	}
+	receipt, err := persistence.Load[struct {
+		Digest string
+		Result struct {
+			FontSize string
+			Version  int
+		}
+	}](ctx, db.Store(), "business.settings.receipts", "owner/receipt")
+	if err != nil || receipt.Digest != "same" || receipt.Result.FontSize != "standard" || receipt.Result.Version != 7 {
+		t.Fatal(receipt, err)
+	}
+	if err := db.Migrate(ctx); err != nil {
+		t.Fatal(err)
 	}
 }

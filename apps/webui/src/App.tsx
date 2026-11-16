@@ -69,8 +69,9 @@ function WorkspaceHost() {
     if (!settings.data) return;
     if (settings.data.Language === 'zh' || settings.data.Language === 'en') setLocale(settings.data.Language);
     changePreference(settings.data.Theme, { animate: false }); changePalette(settings.data.Palette || 'forest');
+    document.documentElement.dataset.fontSize = settings.data.FontSize;
     document.documentElement.dataset.reducedMotion = String(settings.data.ReducedMotion);
-    return () => { delete document.documentElement.dataset.reducedMotion; };
+    return () => { delete document.documentElement.dataset.reducedMotion; delete document.documentElement.dataset.fontSize; };
   }, [settings.data?.Version, changePreference, changePalette, setLocale]);
   const uiPage: UIPage = page === 'extensions' || page === 'account' ? 'settings' : page === 'todos' || page === 'schedules' ? 'plans' : page;
   const selected = resolveUI(host.configuration, host.packages, uiPage);

@@ -61,7 +61,7 @@
 | `internal/business/schedule` | `Repository.RecordOccurrence` | `TestTDDDueAndUniqueOccurrences`, `TestTDDOccurrenceConcurrentDeduplication` |
 | `internal/business/schedule` | `Trigger.Validate` | `TestTDDTriggerValidationBoundaries`；已有 `TestCatchUpIsBoundedAndTimezoneIsExplicit` |
 | `internal/business/settings` | `Service.Get` | `TestTDDSettingsUpdateDoesNotRewriteActiveBudget` |
-| `internal/business/settings` | `Service.Update` | `TestTDDSettingsUpdateDoesNotRewriteActiveBudget` |
+| `internal/business/settings` | `Service.Update` | `TestTDDSettingsUpdateDoesNotRewriteActiveBudget`, `TestFontSizePersistsValidatesAndIsolatesAccounts`, `TestFontSizeEventsCommitOnceAndRollbackWithSettings` |
 | `internal/business/settings` | `Service.Export` | `TestTDDExportRequiresFreshPurposeBoundVerification` |
 | `internal/business/settings` | `Service.ExportStatus` | `TestTDDExportRequiresFreshPurposeBoundVerification` |
 | `internal/business/settings` | `Service.Cleanup` | `TestTDDCleanupChecksEveryObjectBeforeMutation` |

@@ -111,7 +111,7 @@ HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使�
 | `connections.list()` | `connections.read` |
 | `connections.test({connectionId, idempotencyKey})` | `connections.test` |
 
-宿主上下文只有 locale、theme、reducedMotion 和语义样式 token。重建 frame 后临时状态消失，持久配置必须使用 settings。页面方法不能自选 OwnerID、包摘要或其他插件身份。
+宿主上下文只有 locale、theme、reducedMotion、fontSize 和语义样式 token（包含 `--text-xs` 至 `--text-xl`）。重建 frame 后临时状态消失，持久配置必须使用 settings。页面方法不能自选 OwnerID、包摘要或其他插件身份。
 
 ## 生命周期与 HTTP 路由
 

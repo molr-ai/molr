@@ -26,6 +26,7 @@ export function queryTopic(path: string) {
 }
 
 const eventTopics: Record<string, string[]> = {
+  'settings.changed': ['settings'],
   'notification.changed': ['notifications'],
  'watch.changed': ['plans'],
   'qq.changed': ['qq'], 'feishu.changed': ['feishu'], 'weixin.changed': ['weixin'],
