@@ -182,13 +182,13 @@
 
 | `internal/policy` | `Grants.UpdateGrant`, `Service.UpdateGrant`, `Manager.UpdateGrant` | `TestGrantUpdateIsAtomicVersionedAndOwnerOnly` |
 
-| internal/auth | Service.CreateLoginLink | TestLoginLinkValidationExpiryAndManagement |
+| internal/auth | Service.CreateLoginLink | TestLoginLinkValidationExpiryAndManagement, TestLoginLinkInternalDestinationSurvivesRedemption |
 | internal/auth | Service.LoginLinks | TestLoginLinkLifecycleAndAtomicRedemption |
-| internal/auth | Service.RevokeLoginLink | TestLoginLinkValidationExpiryAndManagement |
+| internal/auth | Service.RevokeLoginLink | TestLoginLinkValidationExpiryAndManagement, TestLoginLinkInternalDestinationSurvivesRedemption |
 | internal/auth | Service.RedeemLoginLink | TestLoginLinkLifecycleAndAtomicRedemption |
-| internal/auth | Manager.CreateLoginLink | TestLoginLinkValidationExpiryAndManagement |
+| internal/auth | Manager.CreateLoginLink | TestLoginLinkValidationExpiryAndManagement, TestLoginLinkInternalDestinationSurvivesRedemption |
 | internal/auth | Manager.LoginLinks | TestLoginLinkLifecycleAndAtomicRedemption |
-| internal/auth | Manager.RevokeLoginLink | TestLoginLinkValidationExpiryAndManagement |
+| internal/auth | Manager.RevokeLoginLink | TestLoginLinkValidationExpiryAndManagement, TestLoginLinkInternalDestinationSurvivesRedemption |
 | internal/auth | Manager.RedeemLoginLink | TestLoginLinkLifecycleAndAtomicRedemption |
 | `internal/auth` | `Manager.PreviewLoginLink`, `Service.PreviewLoginLink` | `TestLoginLinkPreviewDoesNotConsumeAndRejectsInvalidLinks` |
 

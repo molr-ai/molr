@@ -2,9 +2,12 @@ package auth
 
 import (
 	"context"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -53,17 +56,52 @@ type storedLoginLink struct {
 	Digest    string
 }
 
-// Only known WebUI routes may be stored as post-login destinations.
-func validLoginTarget(path string) bool {
-	switch path {
-	case "/account/usage", "/settings/usage", "/account", "/account/theme", "/account/memory", "/account/security", "/assistants", "/plans", "/resources", "/settings", "/settings/theme", "/extensions", "/settings/memory", "/settings/security", "/workbench":
-		return true
+// Login targets are app-relative routes, not a second catalog of business pages.
+// Keep the exact path/query; the WebUI router selects the page and its APIs
+// authorize access. Reject ambiguous URL syntax before persisting a destination.
+func validLoginTarget(target string) bool {
+	if len(target) == 0 || len(target) > 4096 || !strings.HasPrefix(target, "/") || strings.HasPrefix(target, "//") || strings.ContainsAny(target, "\\#") {
+		return false
 	}
-	return false
+	for _, r := range target {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return false
+		}
+	}
+	parsed, err := url.Parse(target)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.User != nil || !utf8.ValidString(parsed.Path) || strings.Contains(strings.ToLower(parsed.EscapedPath()), "%2f") {
+		return false
+	}
+	if parsed.Path != "/" {
+		for _, segment := range strings.Split(parsed.Path[1:], "/") {
+			if segment == "" || segment == "." || segment == ".." || strings.ContainsAny(segment, "\\%?#") {
+				return false
+			}
+			for _, r := range segment {
+				if unicode.IsControl(r) {
+					return false
+				}
+			}
+		}
+	}
+	// Authentication is an entry flow, never a post-login destination.
+	if parsed.Path == "/login" || strings.HasPrefix(parsed.Path, "/login/") {
+		return false
+	}
+	query, err := url.QueryUnescape(parsed.RawQuery)
+	if err != nil || !utf8.ValidString(query) {
+		return false
+	}
+	for _, r := range query {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
 }
 func (m *Manager) CreateLoginLink(ctx context.Context, p core.Principal, req CreateLoginLinkRequest) (LoginLinkIssued, error) {
 	if strings.TrimSpace(req.Name) == "" || len(req.Name) > 128 || !validLoginTarget(req.TargetPath) || req.ExpiresIn < time.Minute || req.ExpiresIn > 24*time.Hour {
-		return LoginLinkIssued{}, core.Invalid("login_link", "name, known target and expiry between one minute and 24 hours required")
+		return LoginLinkIssued{}, core.Invalid("login_link", "name, valid app-relative target and expiry between one minute and 24 hours required")
 	}
 	var out LoginLinkIssued
 	err := m.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {

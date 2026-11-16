@@ -296,7 +296,7 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 
 ### 登录链接
 
-- `POST /api/auth/login-links`：已登录所有者提供 `name`、`target_path`、`expires_in`（60–86400 秒）和用途为 `login_link.create` 的身份验证证明。默认 UI 为 1 小时，另外提供 15 分钟、24 小时。返回 `link` 元数据和仅本次可见的 `value`；数据库只保存 Token 摘要。
+- `POST /api/auth/login-links`：已登录所有者提供 `name`、`target_path`、`expires_in`（60–86400 秒）和用途为 `login_link.create` 的身份验证证明。默认 UI 为 1 小时，另外提供 15 分钟、24 小时。返回 `link` 元数据和仅本次可见的 `value`；数据库只保存 Token 摘要。`target_path` 是以单个 `/` 开头的站内路由，可包含详情路径和查询参数，最长 4096 字节；例如 `/assistants/<ID>?panel=info`、`/plans/<ID>`、`/resources?sandbox=<ID>`、`/workbench/<ID>?event=<ID>`。登录模块不另设页面或参数白名单，原样保存并返回目标；前端只将其写入当前应用的 hash。拒绝外部地址、反斜杠、控制字符、路径回退、空路径段、额外片段和 `/login` 入口。未知页面沿用普通路由的默认处理，目标页面和接口继续校验访问权限。
 - `GET /api/auth/login-links` 返回分页元数据，包括 `UsedAt`、`RevokedAt`、`ExpiresAt` 和 `PendingMFAUntil`（仅等待 MFA 时有值）；不返回凭证。`DELETE /api/auth/login-links/{id}` 撤销链接，也使其待完成的 MFA challenge 失效，不影响已签发的会话。
 - WebUI 使用 `#/login?token=…`，读取后立即从地址栏清除，Token 不写入 localStorage/sessionStorage，不放进 HTTP URL。页面取得预登录 CSRF 后，POST 到 `/api/auth/login-links/preview`，请求体只含 `token`。预览只返回真实 `expires_at`，不消费链接、不签发会话；无效、过期、已使用或已撤销的链接返回 401。该接口与登录接口使用相同的 Origin、预登录 CSRF、限流和 no-store 保护。确认页显示一次性使用说明与到期时间，并提供本机确认和二维码两种模式。二维码由内存中原凭据在本地编码，切换模式不请求兑换、不延长有效期；页面使用到期定时器隐藏过期二维码与确认操作，无周期状态查询。只有用户点击确认后才重新取得预登录 CSRF，并 POST 到 `/api/auth/login-links/redeem`，提交 `token`、`device_id`、`client_type` 和 `device_name`。兑换时重新验证状态，防止预览后被撤销或过期的链接登录。
 - 兑换复用登录的 Origin、CSRF、限流和 HttpOnly Cookie 规则。服务器将 Token 消费与签发会话/MFA challenge 放在同一事务中；并发兑换只成功一次。启用 MFA 时仍调用现有 `/api/auth/mfa/complete`，错误验证码不会签发会话。
@@ -450,6 +450,8 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 ### 近期计划事件
 
+计划执行响应的 `State` 表示后台执行进度；普通助理任务从同账号、同助理、同任务的最新 `agent.jobs` 与匹配的 `agent.handled` 回执投影。正常结束为 `executed`，权限等待为 `waiting`，已结束但缺少匹配回执为 `needs_review`；已验收、暂停、取消及失败的任务状态优先。`TaskState` 保留目标状态供操作校验，`WaitingReason` 提供执行等待原因；读取不修改任务目标、不解除前置依赖。`plans.execution` 在作业事务提交后通知前端刷新，不增加轮询。 `StartedAt` 保留记录的创建／触发时间和历史分页顺序；可选的 `RunStartedAt` 从匹配执行身份的 `agent.turn_timing` 读取实际开始时间，缺失时不补造。详情定位支持 `plan_id` 加 `execution_id`（包括个人执行），或 `plan_id` 加 `at`；日期必须属于该计划，执行与日期不一致时返回参数错误。
+
 所有计划使用源记录的 `State=active|paused|deleted`；`Links` 只保存依赖、交接与个人执行记录。`POST /api/plans/configure` 可设置 `State=active|paused`；日程更新使用 `State`，不再使用 `Enabled`。`NextAt=null` 表示没有下一次自动触发。删除接口保留 `ID`、`Mutation` 契约，已有执行和关注事件可删除，仅未删除计划的依赖会阻止删除。删除事务同时取消未结束任务和作业，提交后通知停止执行；正常列表排除已删除计划，详情返回 `not_found`。
 
 `GET /api/plans?from=…&to=…` 返回日历摘要，日期窗口最多 125 天；省略日期返回计划摘要目录，可用 `scope=all|me|<助理 ID>` 筛选所有者，`mode=undated` 只返回无日期待办。读取限定当前账号、可见计划及其直接依赖；不可见依赖只参与就绪判断，不加入返回列表。
@@ -467,7 +469,7 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 - `GET /api/plans/{kind}/{id}/executions/{execution}` 在展开记录时返回完整执行快照、结果和关联任务，验证执行确实属于该计划。
 - `GET /api/plans/selection?plan_id=…&task_id=…` 解析计划／任务深层链接，返回 `{Plan, At}`，不要求目标位于当前事件页或历史页。至少提供一个 ID，同时提供时必须匹配。
 
-WebUI 日历、近期清单和无日期／逾期清单使用摘要；近期清单不附带请求完整计划目录。打开详情时读取配置及历史首页，展开执行时加载正文；关闭详情停止相关订阅。编辑操作先读取完整配置，避免用摘要中的空说明覆盖原值。
+WebUI 日历、近期清单和无日期／逾期清单使用摘要；近期清单不附带请求完整计划目录。从计划入口打开详情时读取配置及历史首页；从具体事项或执行入口打开时读取配置和对应执行正文，不请求历史列表。切回执行记录后加载历史，停止执行正文的订阅；关闭详情停止相关订阅。编辑操作先读取完整配置，避免用摘要中的空说明覆盖原值。
 
 ### 助理上下文压缩阈值
 

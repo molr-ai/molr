@@ -1,3 +1,4 @@
+import { selectPlanRange } from './plan-controls';
 import { test, expect, type Page } from '@playwright/test';
 
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193}`;
@@ -28,7 +29,7 @@ async function openPlans(page: Page, assistantID: string) {
   return panel;
 }
 
-test('chat plans show only ten nearest assistant items in a flat list and keep an empty state', async ({ page }, info) => {
+test('chat plans page assistant items by list scope and keep an empty state', async ({ page }, info) => {
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
   await login(page);
   const suffix = crypto.randomUUID(), a = await hire(page, `Panel A ${suffix}`), b = await hire(page, `Panel B ${suffix}`);
@@ -41,7 +42,9 @@ test('chat plans show only ten nearest assistant items in a flat list and keep a
   await expect(rows.last()).toContainText(`Scoped ${suffix} 9`);
   await expect(panel).not.toContainText(`Other ${suffix}`);
   await expect(panel).not.toContainText(`Personal ${suffix}`);
-  await expect(panel.locator('.plans-header, .plans-commandbar, .plans-statusbar, .plans-load-more, .interactive-list-row')).toHaveCount(0);
+  await expect(panel.locator('.plans-header, .plans-statusbar, .interactive-list-row')).toHaveCount(0);
+  await expect(panel.getByRole('button',{name:'List range',exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Load more events',exact:true})).toBeVisible();
   await expect(panel.locator('.ui-dialog__header h2')).toBeVisible();
   await expect(panel.locator('.ui-dialog__header h2')).not.toHaveClass('ui-sr-only');
   const viewport = page.viewportSize()!;
@@ -85,6 +88,7 @@ test('chat plans show only ten nearest assistant items in a flat list and keep a
   await expect(page.getByRole('menu', { name: 'Plan actions' })).toBeVisible();
   await expect(panel.locator('.plans-panel-detail')).not.toBeInViewport();
   await page.keyboard.press('Escape');
+  await panel.getByRole('button',{name:'Load more events',exact:true}).click();await expect(rows).toHaveCount(12);
   await post(page, '/api/todos/delete', { ID: other.ID, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: other.Version } });
   const empty = await openPlans(page, b.ID);
   await expect(empty.locator('.plans-empty')).toBeVisible();
@@ -92,6 +96,7 @@ test('chat plans show only ten nearest assistant items in a flat list and keep a
   await post(page, '/api/todos', { Title: `Undated ${suffix}`, AssistantID: b.ID });
   await page.reload();
   await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
+  await selectPlanRange(page.locator('.assistant-plans'),/No date/);
   await expect(page.locator('.assistant-plan-row')).toHaveCount(1);
   await expect(page.locator('.assistant-plan-row')).toContainText(`Undated ${suffix}`);
 });

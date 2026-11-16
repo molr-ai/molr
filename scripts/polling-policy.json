@@ -284,6 +284,15 @@
       ]
     },
     {
+      "file": "apps/webui/src/interfaces/official/features/PlanExecutionPanel.tsx",
+      "reason": "An unstarted selected schedule occurrence changes its display state at its known scheduled time.",
+      "budget": "At most one local deadline timer for the selected schedule occurrence; zero HTTP or storage reads. Cap delays at the platform timeout limit. Cancel while hidden, on execution creation, context change and unmount; recheck on visibility. No timers for to-dos, watches, whole plans or existing executions.",
+      "tests": ["apps/webui/tests/plan-occurrence-time.spec.ts"],
+      "sites": [
+        {"scope": "syncOccurrenceTime", "api": "setTimeout", "delay": "Math.min(deadline - current, 2147483647)", "loops": 0}
+      ]
+    },
+    {
       "file": "apps/webui/src/interfaces/official/features/PlanWeekCalendar.tsx",
       "reason": "Visible duration labels and calendar time indicators advance with wall-clock time.",
       "budget": "Local calculations only (1s/30s/250ms respectively); release on unmount; no periodic API reads.",
@@ -357,6 +366,22 @@
       "tests": [],
       "sites": [
         {"scope": "TurnDetails", "api": "setInterval", "delay": "250", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/use-plan-list.ts",
+      "reason": "Read only the selected plan list on committed changes, visibility, explicit retry or pagination.",
+      "budget": "One serial request loop for one list source. Each refresh reads at most its currently loaded pages; no reads for inactive scopes. Return false on success: zero periodic HTTP or storage reads. Preserve the last successful snapshot on refresh; cancel on scope/filter change and unmount. Failed requests use shared retry backoff.",
+      "tests": [
+        "apps/webui/tests/plans-list-loading.spec.ts"
+      ],
+      "sites": [
+        {
+          "scope": "usePlanList",
+          "api": "poll",
+          "delay": "async (signal) => { setState(old => ({ key, data: old.key === key ? old.data : undefined, loading: true })); try { const items: PlanEvent[] = []; let cursor = ''; for (let i = 0; i < count; i++) { const page = await readPage(path + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''), source, signal); items.push(...page.items); cursor = page.cursor; if (!cursor) break; } if (!signal.aborted) setState({ key, loading: false, data: { items, more: !!cursor } }); } catch (error) { if (!signal.aborted) setState(old => ({ key, loading: false, error, data: error instanceof APIError && [401, 403, 404].includes(error.status) ? undefined : old.key === key ? old.data : undefined })); throw error; } return false; }",
+          "loops": 0
+        }
       ]
     },
     {

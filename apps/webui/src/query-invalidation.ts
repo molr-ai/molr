@@ -29,6 +29,7 @@ const eventTopics: Record<string, string[]> = {
   'settings.changed': ['settings'],
   'notification.changed': ['notifications'],
  'watch.changed': ['plans'],
+ 'plans.execution': ['plans'],
   'qq.changed': ['qq'], 'feishu.changed': ['feishu'], 'weixin.changed': ['weixin'],
   'dingtalk.changed': ['dingtalk'], 'slack.changed': ['slack'], 'telegram.changed': ['telegram'],
   'assistant.profile': ['assistants', 'conversations'],

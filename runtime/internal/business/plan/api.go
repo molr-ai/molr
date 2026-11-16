@@ -14,16 +14,19 @@ import (
 )
 
 type Execution struct {
-	ID           core.ID
-	State        string
-	Title        string
-	Instructions string
-	PlanVersion  core.Version
-	OccurrenceAt *time.Time
-	StartedAt    time.Time
-	CompletedAt  *time.Time
-	Result       string
-	Task         *task.Task
+	ID            core.ID
+	State         string
+	TaskState     string
+	WaitingReason string
+	Title         string
+	Instructions  string
+	PlanVersion   core.Version
+	OccurrenceAt  *time.Time
+	StartedAt     time.Time  // Record creation/trigger time.
+	RunStartedAt  *time.Time `json:",omitempty"` // Actual Runtime start, when recorded.
+	CompletedAt   *time.Time
+	Result        string
+	Task          *task.Task
 }
 type Links struct {
 	Ref          core.Object

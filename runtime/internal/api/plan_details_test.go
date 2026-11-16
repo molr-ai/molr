@@ -93,6 +93,18 @@ func TestPlanReadRoutesSeparateSummariesHistoryAndExecutionBodies(t *testing.T) 
 		t.Fatal("missing execution body")
 	}
 	request("/api/plans/selection?plan_id="+string(source.ID), nil, 200)
+	selected := request("/api/plans/selection?plan_id="+string(source.ID)+"&execution_id="+string(run.ID), nil, 200)
+	var selection struct {
+		Plan plan.Summary
+		At   *time.Time
+	}
+	if err := json.Unmarshal(selected, &selection); err != nil || selection.At == nil || !selection.At.Equal(at) {
+		t.Fatal("execution selection lost occurrence", err)
+	}
+	request("/api/plans/selection?plan_id="+string(source.ID)+"&at="+url.QueryEscape(at.AddDate(0, 0, 1).Format(time.RFC3339)), nil, 200)
+	request("/api/plans/selection?plan_id="+string(source.ID)+"&at="+url.QueryEscape(at.Add(time.Minute).Format(time.RFC3339)), nil, 400)
+	request("/api/plans/selection?plan_id="+string(source.ID)+"&execution_id="+string(run.ID)+"&at="+url.QueryEscape(at.AddDate(0, 0, 1).Format(time.RFC3339)), nil, 400)
+	request("/api/plans/selection?plan_id="+string(source.ID)+"&execution_id=missing", nil, 404)
 	request(path+"/history?limit=201", nil, 400)
 	request(path+"/history?cursor=broken", nil, 400)
 	request(path+"?at=broken", nil, 400)

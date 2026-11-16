@@ -94,7 +94,7 @@ func TestLoginLinkValidationExpiryAndManagement(t *testing.T) {
 	if err == nil {
 		t.Fatal("wrong-purpose verification accepted")
 	}
-	for _, target := range []string{"/settings/appearance", "/ui", "//evil.test", "/settings/../login", "https://evil.test", "/settings?token=x", "/\\evil"} {
+	for _, target := range []string{"//evil.test", "/settings/../login", "https://evil.test", "/\\evil", "/plans/", "/plans/../settings", "/plans/%2e%2e", "/plans/id#fragment", "/plans/id\n", "/plans/id\\extra", "/plans/" + strings.Repeat("a", 4096)} {
 		req.TargetPath = target
 		_, err = f.Service.CreateLoginLink(ctx, p, req)
 		testkit.RequireCode(t, err, core.InvalidArgument)
@@ -218,4 +218,48 @@ func TestLoginLinkPreviewDoesNotConsumeAndRejectsInvalidLinks(t *testing.T) {
 	f.Advance(time.Hour)
 	_, err = f.Service.PreviewLoginLink(ctx, PreviewLoginLinkRequest{Token: expired.Value})
 	testkit.RequireCode(t, err, core.Unauthenticated)
+}
+
+func TestLoginLinkInternalDestinationSurvivesRedemption(t *testing.T) {
+	for _, target := range []string{
+		"/plans/0123456789abcdef0123456789abcdef",
+		"/assistants/assistant-1?panel=tasks&task=task-1",
+		"/resources?sandbox=local",
+		"/workbench/assistant-1?event=event-1",
+		"/account/memory?scope=assistant&assistant_id=a&path=%2Fwork%2Fnotes%20one.md",
+		"/extensions/example.plugin/%40settings",
+		"/account/general",
+		"/future-page/object?view=detail",
+	} {
+		t.Run(target, func(t *testing.T) {
+			f := fixture(t)
+			p, _ := initialized(t, f)
+			link, err := f.Service.CreateLoginLink(t.Context(), p, CreateLoginLinkRequest{Name: "Page review", TargetPath: target, ExpiresIn: 3 * time.Hour, Verification: verify(t, f, p, "login_link.create")})
+			testkit.RequireNoError(t, err)
+			result, err := f.Service.RedeemLoginLink(t.Context(), RedeemLoginLinkRequest{Token: link.Value})
+			testkit.RequireNoError(t, err)
+			if result.Session == nil || result.TargetPath != target || link.Link.TargetPath != target {
+				t.Fatal("lost destination", result.TargetPath)
+			}
+			_, err = f.Service.RedeemLoginLink(t.Context(), RedeemLoginLinkRequest{Token: link.Value})
+			testkit.RequireCode(t, err, core.Unauthenticated)
+		})
+	}
+}
+
+func TestLoginTargetRejectsAmbiguousURLs(t *testing.T) {
+	for _, target := range []string{
+		"", "plans/id", "https://evil.test/plans", "//evil.test", "/\\evil", "/plans//id", "/plans/../settings", "/plans/./id", "/plans/%2e%2e/settings", "/plans/%252e%252e/settings", "/plans/%2f%2fevil.test", "/plans/a%2fb", "/plans/%ff", "/plans/id?q=%ff", "/%2Fexample", "/plans/id%3Fnext", "/plans/%5cid", "/plans/id#extra", "/plans/id#", "/plans/id\n", "/plans/%0aid", "/plans/id?q=%0d%0a", "/plans/id?q=%zz", "/plans/id?q=raw space", "/plans/", "/login", "/login?token=secret", "/login/extra", "/" + strings.Repeat("a", 4096),
+	} {
+		t.Run(target, func(t *testing.T) {
+			if validLoginTarget(target) {
+				t.Fatal("accepted ambiguous target", target)
+			}
+		})
+	}
+	for _, target := range []string{"/", "/plans/id", "/resources?view=tools", "/account/memory?path=%2Fa%20b.md", "/extensions/example.plugin/%40settings", "/future-page/detail?next=https%3A%2F%2Fexample.com", "/" + strings.Repeat("a", 4095)} {
+		if !validLoginTarget(target) {
+			t.Fatal("rejected app-relative target", target)
+		}
+	}
 }

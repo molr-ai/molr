@@ -58,6 +58,7 @@ const model = createServer(async (request, response) => {
     const eventIndex = messages.findLastIndex(message => typeof message.content === 'string' && message.content.startsWith('Runtime event: '));
     const event = eventIndex >= 0 ? JSON.parse(messages[eventIndex].content.split('\n')[0].slice('Runtime event: '.length)) : {};
     const recent = messages.slice(eventIndex + 1), toolResults = recent.filter(message => message.role === 'tool');
+    if (input.model?.startsWith('Plan progress ')) await new Promise(resolve => setTimeout(resolve, 1200));
     const message = { role: 'assistant', content: 'Internal reasoning is not a chat message.' }; let finish = 'stop';
     if (event.conversation_id && input.model?.startsWith('Multi-tool trajectory ') && toolResults.length === 0) {
       const calls = [
