@@ -137,7 +137,11 @@ test('task, resource, schedule and permission cards share layout and display rea
   await taskCard.getByRole('button', { name: 'View task', exact: true }).click();
   const taskDetails = chatPanel(page, 'Plan details');
   await expect(taskDetails.getByRole('region', { name: `${task.Goal} · Plan details`, exact: true })).toBeVisible();
-  await expect(taskDetails.locator('.plan-execution[open] .plan-instructions')).toHaveText(task.Goal);
+  const execution = taskDetails.getByRole('region', { name: 'Selected execution', exact: true });
+  await expect(execution).toHaveAttribute('data-execution-id', task.ID);
+  await expect(taskDetails.getByRole('region', { name: 'Execution history', exact: true })).toHaveCount(0);
+  await execution.getByText('Instructions at execution', { exact: true }).click();
+  await expect(execution.locator('.plans-description-text')).toHaveText(task.Goal);
   await page.keyboard.press('Escape');
   await expect(taskDetails).toBeHidden();
   await resourceCard.getByRole('button', { name: 'View resource', exact: true }).click();

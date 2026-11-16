@@ -364,6 +364,8 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await personal.getByRole('button', { name: /Execution history/ }).click(); await page.getByRole('region', { name: `Todo ${suffix} · Plan details`, exact: true }).getByRole('button', { name: 'Complete this execution' }).click();
   await page.getByRole('dialog', { name: 'Complete this execution' }).getByRole('button', { name: 'Complete this execution' }).click();
   await expect(personal).toHaveAttribute('data-completed', 'true'); await page.reload();
+  await expect(page.getByRole('region', { name: 'Selected execution', exact: true })).toContainText('Completed');
+  await page.getByRole('button', { name: 'Close details', exact: true }).click();
   await selectPlanRange(page, /No date/);
   await expect(personal).toHaveAttribute('data-completed', 'true');
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
@@ -1185,16 +1187,18 @@ test('assistant pinning, clone, archive, rehire and search use persisted data', 
 });
 
 test('task controls and protected data export reach the backend', async ({ page }, info) => {
-  await login(page); const suffix = `${info.project.name}-${Date.now()}`; const assistant = await seedAssistant(page, `Tasks ${suffix}`);
+  await login(page); const suffix = `${info.project.name}-${Date.now()}`; const assistant = await seedAssistant(page, `Permission task controls ${suffix}`);
+  // The permission fixture holds this execution until approval, leaving live task controls.
   await page.goto(`/#/assistants/${assistant.ID}`); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: `Goal ${suffix}`, AcceptanceCriteria: ['A reviewed report'] });
   await page.reload(); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   const tasks = page.locator('.assistant-plans');
+  await selectPlanRange(tasks, /^No date/);
   await expect(tasks.getByRole('heading', { name: `Goal ${suffix}`, exact: true })).toBeVisible();
-  await tasks.getByRole('button', { name: /Execution history/ }).click(); await tasks.locator('.plan-execution summary').click();
+  await tasks.getByRole('button', { name: /Execution history/ }).click(); await tasks.getByRole('region', { name: 'Execution history', exact: true }).getByRole('button').click();
   await tasks.getByRole('button', { name: 'Pause task', exact: true }).click(); await expect(tasks.getByRole('button', { name: 'Resume task', exact: true })).toBeVisible();
   while (await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).count()) await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click();
-  await tasks.getByRole('button', { name: 'Cancel task', exact: true }).click(); await page.getByRole('dialog', { name: 'Cancel task', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(tasks.locator('.plan-execution summary')).toContainText('Canceled');
+  await tasks.getByRole('button', { name: 'Cancel task', exact: true }).click(); await page.getByRole('dialog', { name: 'Cancel task', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(tasks.getByRole('region', { name: 'Selected execution', exact: true })).toContainText('Canceled');
   await expect(page.getByRole('dialog', { name: 'Cancel task', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   await openUserSettings(page);
@@ -1345,7 +1349,11 @@ test('search matches the shared design, filters real results and opens tasks', a
   await expect(panel).not.toBeVisible();
   const tasks = chatPanel(page, 'Plan details');
   await expect(tasks.getByRole('heading', { name: task.Goal, exact: true })).toBeVisible();
-  await expect(tasks.locator('.plan-execution[open]')).toContainText(task.Goal);
+  const execution = tasks.getByRole('region', { name: 'Selected execution', exact: true });
+  await expect(execution).toHaveAttribute('data-execution-id', task.ID);
+  await expect(tasks.getByRole('region', { name: 'Execution history', exact: true })).toHaveCount(0);
+  await execution.getByText('Instructions at execution', { exact: true }).click();
+  await expect(execution.locator('.plans-description-text')).toHaveText(task.Goal);
   await expect(page.getByRole('dialog', { name: 'Cancel task', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
@@ -2135,6 +2143,7 @@ test('chat panels dock by workspace width and preserve state across layouts', as
   const tasksPanel = page.getByRole('complementary', { name: 'Plans', exact: true });
   await expect(tasksPanel).toBeVisible();
   await composer.fill('Tasks do not block chat');
+  await selectPlanRange(tasksPanel, /^No date/);
   await tasksPanel.locator(`[data-plan-id="${plan.ID}"]`).getByRole('button', { name: 'Plan actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Edit', exact: true });

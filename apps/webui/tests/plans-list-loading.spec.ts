@@ -80,3 +80,18 @@ test('switching away from an unfinished list ignores late responses',async({page
     events.release();await page.unrouteAll({behavior:'wait'});await expect(rows(page)).toContainText(['Original watch']);
   }finally{events.release();await f.close();}
 });
+
+test('returning to a watch list retains its loaded pages while refreshing',async({page})=>{
+  const f=await fixture(page);
+  try{
+    await selectPlanRange(page,'Continuous watches');await expect(rows(page)).toContainText(['Original watch']);
+    await page.getByRole('button',{name:'Load more watches',exact:true}).click();await expect(rows(page)).toContainText(['Original watch','Second watch']);
+    await page.getByRole('navigation').getByRole('button',{name:'Resources',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Resources',exact:true})).toBeVisible();
+    f.data.watches.Items[0].Title='Updated watch';const pending=f.hold('watches');
+    await page.getByRole('navigation').getByRole('button',{name:'Plans',exact:true}).click();await selectPlanRange(page,'Continuous watches');await pending.requested;
+    await expect(rows(page)).toContainText(['Original watch','Second watch']);await expect(loading(page)).toHaveCount(0);
+    pending.release();await expect(rows(page)).toContainText(['Updated watch','Second watch']);
+    await expect(page.getByRole('button',{name:'Load more watches',exact:true})).toHaveCount(0);
+  }finally{await f.close();}
+});

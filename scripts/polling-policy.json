@@ -369,22 +369,6 @@
       ]
     },
     {
-      "file": "apps/webui/src/interfaces/official/features/use-plan-list.ts",
-      "reason": "Read only the selected plan list on committed changes, visibility, explicit retry or pagination.",
-      "budget": "One serial request loop for one list source. Each refresh reads at most its currently loaded pages; no reads for inactive scopes. Return false on success: zero periodic HTTP or storage reads. Preserve the last successful snapshot on refresh; cancel on scope/filter change and unmount. Failed requests use shared retry backoff.",
-      "tests": [
-        "apps/webui/tests/plans-list-loading.spec.ts"
-      ],
-      "sites": [
-        {
-          "scope": "usePlanList",
-          "api": "poll",
-          "delay": "async (signal) => { setState(old => ({ key, data: old.key === key ? old.data : undefined, loading: true })); try { const items: PlanEvent[] = []; let cursor = ''; for (let i = 0; i < count; i++) { const page = await readPage(path + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''), source, signal); items.push(...page.items); cursor = page.cursor; if (!cursor) break; } if (!signal.aborted) setState({ key, loading: false, data: { items, more: !!cursor } }); } catch (error) { if (!signal.aborted) setState(old => ({ key, loading: false, error, data: error instanceof APIError && [401, 403, 404].includes(error.status) ? undefined : old.key === key ? old.data : undefined })); throw error; } return false; }",
-          "loops": 0
-        }
-      ]
-    },
-    {
       "file": "apps/webui/src/interfaces/official/features/plan-events.ts",
       "reason": "The shared request coordinator serializes event-triggered reads.",
       "budget": "Return false after a successful read; zero successful idle polling; failed requests may back off.",
@@ -502,7 +486,7 @@
       "file": "apps/webui/src/query-store.ts",
       "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
       "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
-      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts", "apps/webui/tests/plans-list-loading.spec.ts"],
       "sites": [
         {"scope": "<module>", "api": "query.default", "delay": "0", "loops": 0},
         {"scope": "subscribe", "api": "query.reschedule", "delay": "this.interval(entry)", "loops": 0},
