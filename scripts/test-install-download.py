@@ -22,16 +22,17 @@ class BootstrapTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.archive = self.root/'package.tar.gz'
         self.marker = self.root/'executed'
+        self.environment_marker = self.root/'environment'
     def tearDown(self): self.temp.cleanup()
     def package(self, extra=None):
-        files = {'LICENSE': b'fixture', 'THIRD_PARTY_NOTICES.md': b'fixture', 'release.json': b'{}', 'bin/molr': b'fixture', 'bin/molr-setup': ("#!/bin/sh\nprintf '%s\\n' \"$@\" > '"+str(self.marker)+"'\n").encode()}
+        files = {'LICENSE': b'fixture', 'THIRD_PARTY_NOTICES.md': b'fixture', 'release.json': b'{}', 'bin/molr': b'fixture', 'bin/molr-setup': ("#!/bin/sh\nprintf '%s\\n' \"$@\" > '"+str(self.marker)+"'\nprintf '%s\\n' \"$PATH\" > '"+str(self.environment_marker)+"'\n").encode()}
         with tarfile.open(self.archive, 'w:gz') as archive:
             for name, content in files.items():
                 item = tarfile.TarInfo('molr/'+name); item.size = len(content); item.mode = 0o755
                 archive.addfile(item, io.BytesIO(content))
             if extra: archive.addfile(extra)
         if platform.system() == 'Darwin':
-            code = '#include <stdio.h>\nint main(int n,char **a){FILE *f=fopen('+json.dumps(str(self.marker))+',"w");if(!f)return 1;for(int i=1;i<n;i++)fprintf(f,"%s\\n",a[i]);return fclose(f);}'
+            code = '#include <stdio.h>\n#include <stdlib.h>\nint main(int n,char **a){FILE *f=fopen('+json.dumps(str(self.marker))+',"w");if(!f)return 1;for(int i=1;i<n;i++)fprintf(f,"%s\\n",a[i]);fclose(f);f=fopen('+json.dumps(str(self.environment_marker))+',"w");if(!f)return 1;fprintf(f,"%s\\n",getenv("PATH"));return fclose(f);}'
             source = self.root/'fixture.c'; source.write_text(code)
             binary = self.root/'fixture'
             subprocess.run(['/usr/bin/cc', str(source), '-o', str(binary)], check=True)
@@ -50,6 +51,17 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(self.marker.read_text().splitlines(),['--name','molr-fixture','--non-interactive','--program-root',"/tmp/a ' b",'--dry-run'])
         self.assertIn('[Download] Verify checksum',result.stdout)
+    def test_invoking_path_only_reaches_verified_installer(self):
+        self.package()
+        tools = self.root/'custom tools'; tools.mkdir()
+        for name in ['tar', 'chmod', 'sha256sum', 'shasum', 'uname', 'rm']:
+            fake = tools/name
+            fake.write_text('#!/bin/sh\nexit 99\n'); fake.chmod(0o755)
+        path = str(tools)+os.pathsep+os.environ['PATH']
+        result = subprocess.run(['/bin/sh', str(ROOT/'scripts/install.sh'), '--archive', str(self.archive), '--env', 'PATH,JAVA_HOME', '--dry-run'], env={**os.environ, 'PATH': path}, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.environment_marker.read_text(), path+'\n')
+        self.assertEqual(self.marker.read_text(), '--env\nPATH,JAVA_HOME\n--dry-run\n')
     def test_selected_architecture_checked_before_execution(self):
         self.package()
         arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}[platform.machine()]

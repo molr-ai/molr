@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/execenv"
 	"molr.ai/runtime/internal/platform"
 	"net"
 	"os"
@@ -105,6 +106,13 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	}
 	cmd.Dir = directory
 	cmd.Env = os.Environ()
+	if c.FullAccess {
+		var err error
+		cmd.Env, err = execenv.Environment(r.options.PrivateRoot, cmd.Env)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if !r.options.NoWorkspace {
 		cmd.Env = append(cmd.Env, "MOLR_WORKSPACE="+work, "MOLR_GLOBAL="+platform.UserGlobal(r.options.PrivateRoot, e.Principal.OwnerID))
 	}

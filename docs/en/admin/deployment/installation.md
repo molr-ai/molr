@@ -281,6 +281,26 @@ Existing files, directories or links to other instances are preserved. The insta
 
 Uninstallation removes only command symlinks still pointing to that instance. Other entries and the shared `~/.local/bin` PATH configuration remain. `--dry-run` creates no links and changes no shell files. Initial installation from an archive still uses its `./bin/molr-setup`; the short commands below manage installed instances.
 
+## Full Access execution environment
+
+Initial installation imports `PATH` from the environment received by the installer. Linux/macOS capture it before restricting the installer's own PATH, without sourcing shell startup files. With sudo, desktop launches, or a different service account, this may differ from the target account's interactive terminal environment. The plan shows the source, variable names, and service account, never values.
+
+Use `--env PATH,JAVA_HOME` during installation to select exported variables. An explicit list replaces the default selection; include PATH when it should also be updated. After installation, use `molr` with the target instance's configuration from a terminal with the desired toolchain initialized:
+
+```bash
+molr environment --config /path/server.json
+molr environment --config /path/server.json --env PATH,JAVA_HOME,GOPATH
+molr environment --config /path/server.json --env PATH,JAVA_HOME --dry-run
+```
+
+This command supports both complete Runtime servers and standalone `serve --mode sandbox` nodes: select the corresponding configuration without an extra mode flag. It requires no installation record, database access, or service connection, and works for running or stopped instances. On Linux/macOS, run as the service account or root; writes retain the data directory owner. Windows uses `molr.exe environment --config C:\Molr\server.json` with case-insensitive variable names. The installer only initializes the environment during initial installation and exposes no manual refresh subcommand.
+
+Variables must be exported to the invoking process. Values are saved literally without shell expansion. Missing variables, invalid names, NUL-containing values, or a merged configuration over 128 KiB reject the entire update. The `MOLR_` prefix is reserved for Runtime. PATH preserves directory order and requires absolute directories without empty or relative entries; directories need not currently exist.
+
+Values are saved in the service account's private `data_dir/execution-environment.json`. New Full Access program calls, scripts, and terminals apply these overrides to the inherited service environment without restarting; existing tasks retain their original environments. Upgrades and repairs preserve saved settings. Older instances without the file retain service environment inheritance and can initialize it with the commands above. A malformed file blocks new Full Access commands.
+
+This setting does not modify the Runtime process environment, managed browsers, ordinary isolated sandboxes, or directory permissions. PATH entries are not automatically mounted into isolated sandboxes. Shell aliases and functions are not imported.
+
 ## Updates and repeated execution
 
 Running the installed maintenance program shows status and opens a maintenance menu; without a terminal it only shows status. It locates the instance using its executable location, independently of the working directory.

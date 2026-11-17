@@ -278,6 +278,26 @@ export PATH="$HOME/.local/bin:$PATH"
 
 卸载只删除仍指向本实例的命令软链接，不改动其他入口，也不移除共享的 `~/.local/bin` PATH 配置。`--dry-run` 不创建链接或修改 Shell 文件。首次从归档安装仍执行包内的 `./bin/molr-setup`；下文的短命令用于已安装实例。
 
+## Full Access 执行环境
+
+首次安装默认从安装命令收到的环境导入 `PATH`。Linux/macOS 在安装器收紧自身 PATH 前采集，不读取 Shell 启动文件。使用 sudo、桌面启动或不同服务账户时，该环境未必等于目标账户的交互终端环境；安装计划显示来源、变量名称和服务账户，不打印值。
+
+安装时可用 `--env PATH,JAVA_HOME` 指定已导出的变量。显式列表替代默认选择；需要同时更新 PATH 时将它写入列表。安装后，在已初始化工具链的终端使用 `molr` 指定目标实例配置：
+
+```bash
+molr environment --config /path/server.json
+molr environment --config /path/server.json --env PATH,JAVA_HOME,GOPATH
+molr environment --config /path/server.json --env PATH,JAVA_HOME --dry-run
+```
+
+此命令适用于完整 Runtime 和 `serve --mode sandbox` 独立节点，选择各自配置文件即可，无需额外指定运行模式。它不依赖安装记录，不打开数据库或连接服务，运行中和已停止的实例均可更新。Linux/macOS 由服务账户或 root 执行，并保留数据目录所有者；Windows 使用 `molr.exe environment --config C:\Molr\server.json`，变量名不区分大小写。安装器只在首次安装时初始化环境，不提供手动刷新子命令。
+
+变量必须已导出给调用进程；值原样保存，不做 Shell 展开。缺失变量、无效名称、含 NUL 的值或超过 128 KiB 的合并配置使整个更新失败；`MOLR_` 前缀保留给 Runtime。PATH 保留目录顺序，只接受绝对目录，不允许空项或相对路径，不要求目录当前存在。
+
+环境保存在服务账户私有的 `data_dir/execution-environment.json`。保存后，新 Full Access 指定程序、脚本和终端在服务继承环境上应用这些变量，无需重启；已有任务保持原环境。升级和修复保留设置。旧实例尚无该文件时沿用服务继承环境，可用上述命令初始化。损坏的文件会阻止新 Full Access 命令启动。
+
+此设置不修改 Runtime 自身环境、受管浏览器或普通隔离沙盒，不增加目录权限；PATH 中的目录不会自动挂载进普通沙盒。Shell 别名和函数不属于导入范围。
+
 ## 更新与重复运行
 
 运行已安装实例的安装维护程序，会显示状态并进入维护菜单；无终端时只显示状态。它通过自身位置识别实例，因此无需切换到特定工作目录。

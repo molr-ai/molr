@@ -6,6 +6,9 @@
 
 | 包 | 公开入口 | 测试 |
 | --- | --- | --- |
+| `internal/execenv` | `Capture` | `TestCaptureDefaultAndExplicitSelection` |
+| `internal/execenv` | `Save` | `TestSaveSharesLockAndPreservesUpdates`, `TestSaveRejectsCanceledInvalidAndLinkedTargets` |
+| `internal/execenv` | `Read`, `EncodeUpdate`, `Environment` | `TestEnvironmentRefreshPreservesUnselectedAndInheritedValues`, `TestReadRejectsUnsafeOrMalformedEnvironment`, `internal/platform/sandbox.TestDirectEnvironmentRefreshFindsScriptInterpreter` |
 | `internal/sandboxidentity` | `Encode`, `Decode` | `TestConnectionCodeVersionValidationAndRedaction`, `TestRenewalPreservesIdentityAndRecoversExpiredStartup` |
 | `internal/sandboxidentity` | `PublicKeySHA256`, `ServerTLS` | `TestRenewalPreservesIdentityAndRecoversExpiredStartup`, `TestCertificateHotReloadAndCustomIdentityBoundaries` |
 | `internal/logging` | `DefaultOptions` | `internal/config.TestLoggingPolicyDefaultsAndJSONOverrides` |

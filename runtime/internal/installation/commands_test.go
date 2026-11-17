@@ -230,7 +230,7 @@ func TestCommandSetupDryRunAndExistingPATH(t *testing.T) {
 
 func TestCommandSymlinkUsesInstalledIdentity(t *testing.T) {
 	if os.Getenv("MOLR_TEST_COMMAND_ENTRY") == "1" {
-		if err := Run(context.Background(), []string{"status", "--dry-run"}, strings.NewReader(""), os.Stdout, os.Stderr); err != nil {
+		if err := Run(context.Background(), []string{"status", "--dry-run"}, os.Environ(), strings.NewReader(""), os.Stdout, os.Stderr); err != nil {
 			t.Fatal(err)
 		}
 		return
