@@ -16,6 +16,7 @@ async function fixture(page:Page){
       const source:Source=path.endsWith('/watches')?'watches':'events',current=held[source],payload=structuredClone(data[source]),failed=fail[source];
       requests.push({source,url});current?.notify();if(current)await current.wait;
       if(source==='watches' && url.searchParams.has('cursor'))return route.fulfill({json:{Items:[{...watch,Title:'Second watch',Ref:{Kind:'watch',ID:'second-watch'}}],NextCursor:''}});
+      if(source==='events' && url.searchParams.has('cursor'))return route.fulfill({json:{Items:[{Key:'second-event',At:at,PlanKey:'second-event'}],Plans:{'second-event':{...todo,Title:'Second event',Ref:{Kind:'todo',ID:'second-event'}}},NextCursor:''}});
       await route.fulfill(failed?{status:400,json:{code:'invalid_argument'}}:{json:payload});return;
     }
     await route.fulfill({json:[]});
@@ -27,6 +28,24 @@ const rows=(page:Page)=>page.locator('.plans-master .plan-row');
 const loading=(page:Page)=>page.locator('.plans-master .loading');
 async function list(page:Page){await page.getByRole('button',{name:'List',exact:true}).click();}
 async function refresh(page:Page){await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));}
+
+for(const source of ['events','watches'] as const)test(`${source} pagination survives a background refresh between pointer down and up`,async({page})=>{
+  const f=await fixture(page);f.data.events.NextCursor='event-next';
+  try{
+    if(source==='events')await list(page);else await selectPlanRange(page,'Continuous watches');
+    await expect(rows(page)).toContainText([source==='events'?'Original event':'Original watch']);
+    const more=page.getByRole('button',{name:source==='events'?'Load 50 more events':'Load more watches',exact:true});
+    await more.hover();await expect(more).toBeEnabled();
+    // Hold the refresh across the pointer gesture; a disabled button loses the click.
+    await page.mouse.down();const pending=f.hold(source);await refresh(page);await pending.requested;
+    await expect(more).toBeEnabled();await page.mouse.up();await expect(more).toBeDisabled();
+    expect(f.requests.some(request=>request.source===source&&request.url.searchParams.has('cursor'))).toBe(false);
+    pending.release();
+    await expect(rows(page)).toContainText(source==='events'?['Original event','Second event']:['Original watch','Second watch']);
+    expect(f.requests.some(request=>request.source===source&&request.url.searchParams.has('cursor'))).toBe(true);
+    await expect(more).toHaveCount(0);
+  }finally{await page.mouse.up();await f.close();}
+});
 
 test('list scopes request one source, keep watches separate and page only the selected list',async({page})=>{
   const f=await fixture(page),events=f.hold('events');
