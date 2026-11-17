@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
 test('command levels, aliases and summary labels resolve without inventing targets', async () => {
- const server=await createServer({configFile:false,root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true,hmr:false}});
+ const server=await createServer({configFile:false,root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true,hmr:false,ws:false}});
  try {
   const {resolveComposerCommands:resolve}=await server.ssrLoadModule('/src/components/composer-commands.ts');
   const targets=[{name:'all',aliases:['全部'],description:'All pending requests'},{name:'request-42',label:'Temporary hiring',description:'Compare reports',keywords:['Compare reports']}];

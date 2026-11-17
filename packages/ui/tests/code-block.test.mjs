@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
 test('JSON code blocks preserve diagnostic data, escape markup and bound highlighting work', async () => {
-  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false } });
+  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false, ws: false } });
   try {
     const { highlightJSON } = await server.ssrLoadModule('/src/code-highlight.ts');
     const { CodeBlock } = await server.ssrLoadModule('/src/components/CodeBlock.tsx');

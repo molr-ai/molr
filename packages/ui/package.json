@@ -18,7 +18,7 @@
   "scripts": {
     "brand:generate": "node scripts/generate-logos.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test --test-timeout=60000 tests/*.test.mjs"
   },
   "peerDependencies": {
     "react": "^19.3.0",

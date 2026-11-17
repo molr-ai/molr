@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 
 test('SSR imports and rendering need no browser globals; invalid playback is safe', async () => {
   assert.equal(typeof window, 'undefined'); assert.equal(typeof document, 'undefined');
-  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false }, ssr: { noExternal: ['@molr/ui'] } });
+  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false, ws: false }, ssr: { noExternal: ['@molr/ui'] } });
   try {
     const module = await server.ssrLoadModule('/tests/ssr-fixture.tsx');
     const html = renderToString(createElement(module.ServerFixture));

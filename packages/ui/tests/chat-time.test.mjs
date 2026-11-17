@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
 test('chat time reuses bounded explicit-zone formatters while dates and implicit zones stay live', async () => {
-  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false } });
+  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), server: { middlewareMode: true, hmr: false, ws: false } });
   const native = Intl.DateTimeFormat, originalZone = process.env.TZ;
   let constructions = 0;
   Intl.DateTimeFormat = new Proxy(native, { construct(target, args, newTarget) { constructions++; return Reflect.construct(target, args, newTarget); } });
