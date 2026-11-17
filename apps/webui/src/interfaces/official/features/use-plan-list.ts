@@ -44,6 +44,7 @@ export function usePlanList(path:string|null,source:Source){
   const reload=useCallback(()=>{if(key)queries.refresh(key,topics.version('plans'),load,true);},[queries,topics,key,load]);
   return {
     data:state.data,error:state.error,loading:!!path && (state.loading||!state.started),
+    loadingMore:state.loading && !!state.data && count>state.data.pages,
     loadMore:()=>setPages({key,count:count+1}),reload,
   };
 }

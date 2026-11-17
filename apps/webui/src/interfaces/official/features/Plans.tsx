@@ -282,7 +282,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
 
         </section> : !list.data ? list.loading ? <Loading/> : <div className="plans-empty" role="status"><p>{t.listUnavailable}</p><Button size="sm" variant="secondary" onClick={list.reload}>{copy.retry}</Button></div> : <>
           <div className="plan-list plans-list" role={watchMode?'region':undefined} aria-label={watchMode?t.watch:t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>
-          {list.data.more&&<Button className="plans-load-more" size="sm" variant="secondary" loading={list.loading} onClick={list.loadMore}>{watchMode?t.loadMoreWatches:embedded?t.loadMoreItems:t.loadMoreEvents}</Button>}
+          {list.data.more&&<Button className="plans-load-more" size="sm" variant="secondary" loading={list.loadingMore} onClick={list.loadMore}>{watchMode?t.loadMoreWatches:embedded?t.loadMoreItems:t.loadMoreEvents}</Button>}
           {!listRows.length&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : watchMode ? t.noWatches : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : embedded || watchMode ? null : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
       </div>
