@@ -13,11 +13,12 @@
 .terminal-panel { display: flex; flex-direction: column; flex: 1; width: 100%; min-width: 0; min-height: 0; container-type: inline-size; }
 .terminal-tabstrip { display: flex; align-items: center; gap: 4px; height: 46px; min-width: 0; background: var(--color-surface); }
 .terminal-tabs-window { display: flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
-.terminal-tabs { display: flex; align-items: center; flex: 0 1 auto; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.terminal-tabs { display: flex; align-items: center; flex: 0 1 auto; gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .terminal-tabs::-webkit-scrollbar { display: none; }
-.terminal-tab { display: flex; align-items: center; width: 180px; max-width: 100%; min-width: 0; flex: 0 0 auto; height: 34px; border: 1px solid var(--color-border); border-radius: 7px; color: var(--color-text-muted); }
-.terminal-tab[data-active] { color: var(--color-text); background: var(--color-selected-bg); border-color: var(--color-primary); }
-.terminal-tab:not([data-active]):hover { background: var(--color-background); }
+.terminal-tab { position: relative; display: flex; align-items: center; width: 180px; max-width: 100%; min-width: 0; flex: 0 0 auto; height: 34px; border: 0; border-radius: 7px; color: var(--color-text-muted); }
+.terminal-tab[data-active] { color: var(--color-text); background: var(--color-background); }
+.terminal-tab:not([data-active]) + .terminal-tab:not([data-active])::before { content: ""; position: absolute; left: 0; top: 50%; width: 1px; height: 16px; transform: translate(-50%, -50%); background: var(--color-border); pointer-events: none; }
+.terminal-tab:not([data-active]):hover { color: var(--color-text); }
 .terminal-tab > button[role='tab'] { display: flex; flex: 1; align-items: center; gap: 5px; min-width: 0; height: 100%; padding: 6px; font: inherit; font-size: var(--text-xs); color: inherit; background: transparent; border: 0; cursor: pointer; text-align: left; }
 .terminal-tab > button[role='tab'] > svg { flex-shrink: 0; }
 .terminal-tab > button[role='tab'] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
