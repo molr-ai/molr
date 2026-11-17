@@ -404,7 +404,7 @@ func TestAlreadyCurrentCanPersistSubscription(t *testing.T) {
 func TestCommandHelpAndVersionWithoutPackage(t *testing.T) {
 	for _, args := range [][]string{{"--help"}, {"version", "--json"}} {
 		var out bytes.Buffer
-		if err := Run(context.Background(), args, strings.NewReader(""), &out, &out); err != nil {
+		if err := Run(context.Background(), args, os.Environ(), strings.NewReader(""), &out, &out); err != nil {
 			t.Fatal(err)
 		}
 		if out.Len() == 0 {

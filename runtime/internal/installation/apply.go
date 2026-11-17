@@ -140,6 +140,11 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 			}
 		}
 	}
+	if p.Previous == nil {
+		if err = e.writeEnvironment(r, p.Environment); err != nil {
+			return err
+		}
+	}
 	if p.Previous != nil && p.Previous.State == "installed" {
 		state, err := e.unitState(p.Previous)
 		if err != nil {

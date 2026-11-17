@@ -13,6 +13,7 @@ import (
 	"io"
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/execenv"
 	"molr.ai/runtime/internal/installrecord"
 	"molr.ai/runtime/internal/platform"
 	"net"
@@ -179,6 +180,7 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	flags.SetOutput(diagnostics)
 	name := flags.String("name", "", "instance name")
 	rootArg := flags.String("program-root", "", "private program root")
+	envNames := flags.String("env", "", "comma-separated exported variables to import; default PATH (install)")
 	preset := flags.String("resource-preset", "permissive", "initial resource preset: permissive (default) or least-privilege")
 	initOwner := flags.String("init-owner", "", "initial administrator username; password from stdin")
 	yes := flags.Bool("yes", false, "confirm changes")
@@ -194,6 +196,17 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	}
 	if action != "status" && action != "plan" && !*yes {
 		return fmt.Errorf("--yes required")
+	}
+	if *envNames != "" && action != "install" {
+		return fmt.Errorf("--env requires install")
+	}
+	var selectedEnvironment map[string]string
+	if action == "install" {
+		var err error
+		selectedEnvironment, err = execenv.Capture(*envNames, os.Environ())
+		if err != nil {
+			return err
+		}
 	}
 	if *preset != "least-privilege" && *preset != "permissive" {
 		return fmt.Errorf("invalid resource preset")
@@ -443,6 +456,11 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 			return fmt.Errorf("desktop Runtime requires owned data and loopback HTTP")
 		}
 		r.URL = cfg.HTTP.PublicURL
+		if action == "install" {
+			if e = writeEnvironment(ctx, r.DataDir, selectedEnvironment); e != nil {
+				return e
+			}
+		}
 		if len(password) > 0 {
 			cmd := exec.CommandContext(ctx, r.Binary, "bootstrap", "--config", configPath, "--username", *initOwner, "--password-stdin")
 			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}

@@ -37,6 +37,8 @@ macOS 本机浏览器由 `browser_native_unix.go` 启动固定 Chromium 和前�
 
 ## Full Access 权限与双路径执行
 
+Full Access 命令在每次启动时通过 `execenv.Environment` 读取私有数据目录的 `execution-environment.json`，在服务继承环境上应用显式变量；本地和远程节点各读取自己的文件。安装与 `molr environment` 共用采集、校验及合并逻辑，默认只选 PATH；安装和命令入口共用 `execenv.Save`，使用独立环境文件锁和原子替换，回执不包含变量值。读取随任务启动发生，无空闲轮询，也不修改已有进程环境。缺失文件沿用服务环境，损坏文件阻止启动；普通隔离后端与受管浏览器保持原有环境策略。操作方式见 [Full Access 执行环境](../../admin/deployment/installation.md#full-access-执行环境)。
+
 以下隔离机制适用于普通调用。`sandbox.allow_full_access` 默认 false；开启后，同一 Runner 可并发处理普通隔离调用和显式 Full Access 调用。节点没有全局执行模式。Full Access 必须同时满足部署允许、用户组允许（管理员默认允许）、有效的 `Scope.FullAccess` 计算授权和本次 `full_access: true`。
 
 不限范围的脚本调用由 `direct_unix.go` 在服务环境中直接执行 `/bin/sh`，继承环境并设置 `MOLR_WORKSPACE`，支持后台、TTY、输入、取消和端口转发；不创建 namespace、seccomp、cgroup 或资源限额，不承诺文件、网络和进程隔离。文件工具使用绝对路径或工作区别名。Full Access 不依赖普通计算、文件、网络授权，不计入普通任务十个并发上限。调用者显式设置的超时、授权期限、输出分页和 API 请求大小边界仍保留；这些是调用生命周期和协议边界，不是资源配额。

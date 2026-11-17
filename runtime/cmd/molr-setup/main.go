@@ -16,10 +16,11 @@ import (
 
 func main() {
 	syscall.Umask(0077)
+	environment := os.Environ()
 	os.Setenv("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := installation.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+	if err := installation.Run(ctx, os.Args[1:], environment, os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "molr-setup:", err)
 		var pending *installation.VerificationPending
 		if errors.As(err, &pending) {

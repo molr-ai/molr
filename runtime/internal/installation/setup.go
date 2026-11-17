@@ -22,11 +22,13 @@ import (
 
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/execenv"
 	"molr.ai/runtime/internal/installrecord"
 	"molr.ai/runtime/internal/updates"
 )
 
 type Options struct {
+	Environment                                                                                                                     string
 	AutoInitAdmin                                                                                                                   bool
 	Archive, Output                                                                                                                 string
 	Overwrite, KeepStopped                                                                                                          bool
@@ -40,6 +42,7 @@ type Options struct {
 	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade      bool
 }
 type Engine struct {
+	environment                 []string
 	account                     func() (*Account, error)
 	initPassword                []byte
 	desktopLogin                string
@@ -64,12 +67,13 @@ type Package struct {
 	Build installrecord.Build
 }
 type Plan struct {
-	Record   *installrecord.Record
-	Previous *installrecord.Record
-	Package  *Package
-	Config   map[string]any
-	Choices  map[string]*permissionChoice
-	Sandbox  bool
+	Environment map[string]string
+	Record      *installrecord.Record
+	Previous    *installrecord.Record
+	Package     *Package
+	Config      map[string]any
+	Choices     map[string]*permissionChoice
+	Sandbox     bool
 }
 
 func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
@@ -102,6 +106,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	f.BoolVar(&o.Overwrite, "overwrite", false, "replace the explicitly selected instance from backup")
 	f.BoolVar(&o.KeepStopped, "keep-stopped", false, "leave the source stopped after backup")
 	f.SetOutput(diagnostics)
+	f.StringVar(&o.Environment, "env", "", "comma-separated exported variables to import; default PATH (initial setup)")
 	f.BoolVar(&o.JSON, "json", false, "machine-readable task output")
 	f.StringVar(&o.TaskID, "task-id", o.TaskID, "maintenance task identity")
 	f.IntVar(&o.LockFD, "lock-fd", 0, "internal verified installer handoff")
@@ -136,6 +141,9 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	}
 	if f.NArg() != 0 {
 		return o, fmt.Errorf("unexpected arguments")
+	}
+	if o.Environment != "" && o.Command != "setup" && !(o.Command == "desktop" && o.TaskAction == "install") {
+		return o, fmt.Errorf("--env requires initial setup")
 	}
 	f.Visit(func(v *flag.Flag) {
 		if v.Name == "name" {
@@ -194,7 +202,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	}
 	return o, nil
 }
-func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics io.Writer) error {
+func Run(ctx context.Context, args, environment []string, input io.Reader, out, diagnostics io.Writer) error {
 	if len(args) > 0 && args[0] == "version" {
 		if len(args) == 2 && args[1] == "--json" {
 			return json.NewEncoder(out).Encode(buildinfo.Current())
@@ -227,7 +235,7 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 	if err != nil {
 		return err
 	}
-	e := &Engine{Ctx: ctx, Options: o, UI: ui, Input: input, Executable: executable, Root: filepath.Dir(filepath.Dir(executable)), Build: buildinfo.Current(), Command: command}
+	e := &Engine{environment: environment, Ctx: ctx, Options: o, UI: ui, Input: input, Executable: executable, Root: filepath.Dir(filepath.Dir(executable)), Build: buildinfo.Current(), Command: command}
 	defer func() {
 		if e.lock != nil {
 			e.lock.Close()
@@ -324,6 +332,9 @@ func (e *Engine) execute() error {
 		}
 		if e.Options.Command == "configure" {
 			return e.configureResources(r)
+		}
+		if e.Options.Environment != "" {
+			return fmt.Errorf("existing installation: use molr environment --config to update execution variables")
 		}
 		if e.Options.Command == "uninstall" {
 			return e.uninstall(r)
@@ -445,6 +456,9 @@ var accountName = regexp.MustCompile(`^[a-z_][a-z0-9_.-]{0,31}$`)
 
 func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, error) {
 	o := e.Options
+	if previous != nil && o.Environment != "" {
+		return nil, fmt.Errorf("existing installation: use molr environment --config to update execution variables")
+	}
 	if runtime.GOOS == "darwin" && (o.User != "" || os.Geteuid() == 0) {
 		return nil, fmt.Errorf("macOS supports current-user installation; run without sudo or --user")
 	}
@@ -700,7 +714,14 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		}
 	}
 	r.Build = pkg.Build
-	return &Plan{Record: &r, Previous: previous, Package: pkg, Config: cfg, Choices: choices, Sandbox: enabled}, nil
+	var environment map[string]string
+	if previous == nil {
+		environment, err = execenv.Capture(o.Environment, e.sourceEnvironment())
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &Plan{Environment: environment, Record: &r, Previous: previous, Package: pkg, Config: cfg, Choices: choices, Sandbox: enabled}, nil
 }
 func object(v map[string]any, key string) (map[string]any, error) {
 	if x, ok := v[key]; ok {
@@ -717,6 +738,14 @@ func object(v map[string]any, key string) (map[string]any, error) {
 func (e *Engine) showPlan(p *Plan) {
 	r := p.Record
 	e.UI.print("Runtime mode: %s", r.Mode)
+	if p.Previous == nil {
+		names := make([]string, 0, len(p.Environment))
+		for name := range p.Environment {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		e.UI.print("Full Access environment: import %s from the invoking process for service account %s.", strings.Join(names, ", "), r.User)
+	}
 	e.UI.print("System: %s / %s\nInstance: %s\nAccount: %s\nPackage: %s\nProgram: %s\nConfiguration: %s\nData: %s\nUpdates: %s", hostLabel(), runtime.GOARCH, r.Name, r.User, r.Build.Version, r.Paths.Program, r.Paths.Config, r.DataDir, r.UpdateSource())
 	if directory, err := commandDirectory(r); err == nil {
 		e.UI.print("Command links: %s (existing commands are preserved)", directory)

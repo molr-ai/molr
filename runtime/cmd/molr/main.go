@@ -68,10 +68,13 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|container|connection-code|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json\n       molr tui [--server https://molr.example.com] [--login]\n       molr tui --demo")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|container|connection-code|access|doctor|recover|environment|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json\n       molr tui [--server https://molr.example.com] [--login]\n       molr tui --demo")
 		return nil
 	}
 	command := args[0]
+	if command == "environment" {
+		return refreshEnvironment(ctx, args[1:], output, diagnostics)
+	}
 	if command == "container" {
 		return runContainer(ctx, args[1:], output, diagnostics)
 	}

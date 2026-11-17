@@ -1,6 +1,7 @@
 #!/bin/sh
 # Bootstrap only: installation and maintenance belong to the verified package.
 set -eu
+molr_invoking_path=${PATH-}
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 umask 077
 stage='Read options'
@@ -156,4 +157,4 @@ if [ "$os" = darwin ]; then
  done
 fi
 step 'Run package installer'
-"$temporary/molr/bin/molr-setup" "$@"
+PATH="$molr_invoking_path" "$temporary/molr/bin/molr-setup" "$@"
